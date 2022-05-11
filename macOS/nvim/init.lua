@@ -77,6 +77,7 @@ require('packer').startup(function()
   use {"akinsho/toggleterm.nvim", tag = 'v1.*', config = function()
     require("toggleterm").setup()
   end}
+  use {'iamcco/markdown-preview.nvim', run='cd app && npm install'}
 end)
                                                                       -- Colorscheme config
 vim.g.tokyonight_enable_italic = true
@@ -173,7 +174,14 @@ require('nvim-tree').setup()
                                                                       -- Nvim lsp config
 require('nvim-lsp-installer').setup()
                                                                       -- Telescope config
-require('telescope').setup()
+require('telescope').setup {
+  pickers = {
+    find_files = {
+      hidden = true,
+      cwd = vim.fn.expand('%:p:h')
+    }
+  }
+}
                                                                       -- Dashboard config
 vim.g.dashboard_default_executive = 'telescope'
 vim.g['dashboard_custom_header'] = {
@@ -197,6 +205,10 @@ vim.g.dashboard_custom_section = {
 }
 vim.g.dashboard_custom_footer = {'Waste 100 hours to save 1 hour - Vim Philosophy'}
 
+                                                                      -- Markdown Preview cpnfig
+vim.g.mkdp_command_for_global = 1
+vim.g.mkdp_auto_close = 0
+vim.g.mkdp_echo_preview_url = 1
 
 --------------------------------------------------------------------
 --                            KEYBINDS                            --
@@ -224,3 +236,4 @@ map("n", "<Leader>th", ":ToggleTerm<CR>")                                     --
 map("t", "<Esc>", [[<C-\><C-n>:ToggleTerm<CR>]])                              -- Close terminal
 map("n", "<Leader>h", ":noh<CR>")                                             -- No highlight
 map("n", "<Leader>ld", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- code diagnostics
+map("n", "<C-p>", ":MarkdownPreviewToggle<CR>")                               -- Markdown preview
