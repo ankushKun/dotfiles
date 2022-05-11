@@ -1,2 +1,7 @@
 # dotfiles
-config files
+
+## Screenshots
+
+### Mac OS
+
+![desktop](images/mac0.png)
