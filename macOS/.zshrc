@@ -111,6 +111,8 @@ source $ZSH/oh-my-zsh.sh
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 alias v=nvim
+alias nv=neovide\ --multigrid
+
 alias dev="cd /Volumes/1TB/Developer"
 
 export PATH="/Users/ankush/Library/Python/3.8/bin:$PATH"

@@ -1,5 +1,8 @@
 window:
-  opacity: 0.9
+  opacity: 0.95
+  class:
+    instance: Alacritty
+    general: Alacritty
   dimensions:
     columns: 100
     lines: 30

@@ -24,9 +24,14 @@ vim.opt.smartcase = true
 vim.opt.smartindent = true
 vim.opt.smarttab = true
 vim.opt.clipboard = "unnamedplus"
+                                                                      -- Neovide options
+if (vim.fn.exists('neovide') == 1) then
+  vim.g.neovide_transparency = 0.95
+  vim.opt.guifont = "MesloLGS NF"
+end
 
 -- custom command to open config
-vim.cmd(':command Config e ~/.config/nvim/init.lua')
+vim.cmd(':command! Config e ~/.config/nvim/init.lua')
 
 --------------------------------------------------------------------
 --                            PLUGINS                             --
@@ -82,6 +87,9 @@ end)
                                                                       -- Colorscheme config
 vim.g.tokyonight_enable_italic = true
 vim.g.tokyonight_transparent_background = true
+if (vim.fn.exists('neovide') == 1) then
+  vim.g.tokyonight_transparent_background = false
+end
 vim.cmd('colorscheme tokyonight')
 
                                                                       -- Bottom lualine bar config
@@ -171,6 +179,8 @@ require('nvim-treesitter.configs').setup({
 })
                                                                       -- File explorer config
 require('nvim-tree').setup()
+                                                                      -- Bufferline config
+-- require('bufferline').setup{} -- gives errors
                                                                       -- Nvim lsp config
 require('nvim-lsp-installer').setup()
                                                                       -- Telescope config
@@ -237,3 +247,5 @@ map("t", "<Esc>", [[<C-\><C-n>:ToggleTerm<CR>]])                              --
 map("n", "<Leader>h", ":noh<CR>")                                             -- No highlight
 map("n", "<Leader>ld", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- code diagnostics
 map("n", "<C-p>", ":MarkdownPreviewToggle<CR>")                               -- Markdown preview
+map("n", "L", ":bp<CR>")                                                      -- Buffer previous
+map("n", "H", ":bn<CR>")                                                      -- buffer next
