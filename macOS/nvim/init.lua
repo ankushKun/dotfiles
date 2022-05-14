@@ -19,6 +19,7 @@ vim.opt.wrap = false
 vim.opt.termguicolors = true
 vim.opt.showmode = false
 vim.opt.scrolloff = 5
+vim.opt.sidescrolloff = 5
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 vim.opt.smartindent = true
@@ -26,7 +27,7 @@ vim.opt.smarttab = true
 vim.opt.clipboard = "unnamedplus"
                                                                       -- Neovide options
 if (vim.fn.exists('neovide') == 1) then
-  vim.g.neovide_transparency = 0.95
+  vim.g.neovide_transparency = 0.9
   vim.opt.guifont = "MesloLGS NF"
 end
 
@@ -40,33 +41,28 @@ vim.cmd(':command! Config e ~/.config/nvim/init.lua')
                                                                       -- Packer install plugins
 require('packer').startup(function()
   use 'wbthomason/packer.nvim'
-  use {
-    'nvim-lualine/lualine.nvim',
+  use {'nvim-lualine/lualine.nvim',
     requires = {'kyazdani42/nvim-web-devicons'}
   }
   use 'akinsho/bufferline.nvim'
   use 'ghifarit53/tokyonight-vim'
   use 'nvim-treesitter/nvim-treesitter'
-  use {
-    'williamboman/nvim-lsp-installer',
-    {'neovim/nvim-lspconfig'}
+  use {'williamboman/nvim-lsp-installer',
+      {'neovim/nvim-lspconfig'}
   }
   use 'hrsh7th/cmp-nvim-lsp'
   use 'hrsh7th/cmp-buffer'
   use 'hrsh7th/cmp-path'
   use 'hrsh7th/cmp-cmdline'
   use 'hrsh7th/nvim-cmp'
-  use {
-    'kyazdani42/nvim-tree.lua',
+  use {'kyazdani42/nvim-tree.lua',
     requires = {'kyazdani42/nvim-web-devicons'}
   }
-  use {
-    'romgrk/barbar.nvim',
+  use {'romgrk/barbar.nvim',
     requires = {'kyazdani42/nvim-web-devicons'}
   }
   use 'glepnir/dashboard-nvim'
-  use {
-    'nvim-telescope/telescope.nvim',
+  use {'nvim-telescope/telescope.nvim',
     requires = {'nvim-lua/plenary.nvim'}
   }
   use 'arkav/lualine-lsp-progress'
@@ -75,14 +71,14 @@ require('packer').startup(function()
   use 'tpope/vim-commentary'
   use 'L3MON4D3/LuaSnip'
   use 'wakatime/vim-wakatime'
-  use {'OmniSharp/omnisharp-vim', config = function()
-    vim.g.OmniSharp_server_stdio = 1
-    vim.g.OmniSharp_server_use_mono = 1
-  end}
+  -- use {'OmniSharp/omnisharp-vim'}
   use {"akinsho/toggleterm.nvim", tag = 'v1.*', config = function()
     require("toggleterm").setup()
   end}
   use {'iamcco/markdown-preview.nvim', run='cd app && npm install'}
+  -- use {'ggandor/lightspeed.nvim'}
+  use 'seandewar/killersheep.nvim'
+  use 'alec-gibson/nvim-tetris'
 end)
                                                                       -- Colorscheme config
 vim.g.tokyonight_enable_italic = true
@@ -91,16 +87,13 @@ if (vim.fn.exists('neovide') == 1) then
   vim.g.tokyonight_transparent_background = false
 end
 vim.cmd('colorscheme tokyonight')
+        config = function()
+            require('lualine').setup({
+            options = { globalstatus = true },
+            sections = { lualine_c = { 'lsp_progress' } }
+        })
+        end
 
-                                                                      -- Bottom lualine bar config
-require('lualine').setup({
-  options = {
-    globalstatus = true
-  },
-  sections = {
-    lualine_c = { 'lsp_progress' }
-  }
-})
 
                                                                       -- Setup nvim-cmp.
 vim.g.completeopt="menu,menuone,noselect,noinsert"
@@ -159,12 +152,36 @@ cmp.setup.cmdline(':', {
 })
 
                                                                       -- LSP config
-require('nvim-lsp-installer').setup {}
+require('nvim-lsp-installer').setup {
+  -- automatic_installation = true
+}
+
 local lspconfig = require("lspconfig")
 local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
-lspconfig.sumneko_lua.setup { capabilities = capabilities }
+lspconfig.sumneko_lua.setup {
+  capabilities = capabilities,
+  settings = {
+    Lua = {
+      diagnostics = {
+        globals = {"vim", "use"},
+        disable = {"lowercase-global"}
+      }
+    }
+  }
+}
 lspconfig.pyright.setup { capabilities = capabilities }
--- lspconfig.omnisharp.setup { capabilities = capabilities }
+lspconfig.omnisharp.setup {
+  ---------------------------------------------
+  --              Installation               --
+  -- brew tap                                --
+  -- brew uninstall mono                     --
+  -- brew install omnisharp/omnisharp-roslyn --
+  ---------------------------------------------
+  filetypes = {'cs'},
+  cmd = {"/usr/local/bin/omnisharp", "-lsp", "--hostPID", tostring(vim.fn.getpid())},
+  root_dir = lspconfig.util.root_pattern("*.sln");
+  capabilities = capabilities
+}
 lspconfig.tsserver.setup { capabilities = capabilities }
 lspconfig.yamlls.setup { capabilities = capabilities }
 
@@ -180,18 +197,21 @@ require('nvim-treesitter.configs').setup({
                                                                       -- File explorer config
 require('nvim-tree').setup()
                                                                       -- Bufferline config
--- require('bufferline').setup{} -- gives errors
+-- require('bufferline').setup() -- gives errors
                                                                       -- Nvim lsp config
 require('nvim-lsp-installer').setup()
+
                                                                       -- Telescope config
 require('telescope').setup {
-  pickers = {
-    find_files = {
-      hidden = true,
-      cwd = vim.fn.expand('%:p:h')
-    }
+  defaults = {
+    show_hidden = true,
+    previewer = true,
+    preview_cutoff = 1,
+    shorten_path = true,
+    layout_strategy = 'flex',
   }
 }
+
                                                                       -- Dashboard config
 vim.g.dashboard_default_executive = 'telescope'
 vim.g['dashboard_custom_header'] = {
@@ -215,10 +235,19 @@ vim.g.dashboard_custom_section = {
 }
 vim.g.dashboard_custom_footer = {'Waste 100 hours to save 1 hour - Vim Philosophy'}
 
-                                                                      -- Markdown Preview cpnfig
+                                                                      -- Markdown Preview config
 vim.g.mkdp_command_for_global = 1
 vim.g.mkdp_auto_close = 0
 vim.g.mkdp_echo_preview_url = 1
+                                                                      -- Github copilot config
+vim.cmd('imap <silent><script><expr> <C-Tab> copilot#Accept("")') -- <C-Tab> works in Neovide
+vim.g.copilot_no_tab_map = true
+                                                                      -- Omnisharp config
+-- maps Tab to <C-x><C-o> for autocompletion using Omnisharp,
+-- also lets you use Tab if the cursor is on a whitespace
+-- vim.g.OmniSharp_server_stdio = 1
+-- vim.g.OmniSharp_server_use_mono = 1
+-- vim.cmd([[autocmd FileType cs inoremap <expr> <Tab> pumvisible() ? '<C-n>' : getline('.')[col('.')-2] =~# '[[:alnum:].-_#$]' ? '<C-x><C-o>' : '<Tab>']])
 
 --------------------------------------------------------------------
 --                            KEYBINDS                            --
