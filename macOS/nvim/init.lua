@@ -11,15 +11,15 @@ vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.mouse = "a"
 vim.opt.expandtab = true
-vim.opt.tabstop = 2
-vim.opt.softtabstop = 2
-vim.opt.shiftwidth = 2
+vim.opt.tabstop = 4
+vim.opt.softtabstop = 4
+vim.opt.shiftwidth = 4
 vim.opt.textwidth = 169
 vim.opt.wrap = false
 vim.opt.termguicolors = true
 vim.opt.showmode = false
 vim.opt.scrolloff = 5
-vim.opt.sidescrolloff = 5
+vim.opt.sidescrolloff = 10
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 vim.opt.smartindent = true
@@ -79,6 +79,7 @@ require('packer').startup(function()
   -- use {'ggandor/lightspeed.nvim'}
   use 'seandewar/killersheep.nvim'
   use 'alec-gibson/nvim-tetris'
+  use 'mg979/vim-visual-multi'
 end)
                                                                       -- Colorscheme config
 vim.g.tokyonight_enable_italic = true
@@ -87,13 +88,12 @@ if (vim.fn.exists('neovide') == 1) then
   vim.g.tokyonight_transparent_background = false
 end
 vim.cmd('colorscheme tokyonight')
-        config = function()
-            require('lualine').setup({
-            options = { globalstatus = true },
-            sections = { lualine_c = { 'lsp_progress' } }
-        })
-        end
 
+                                                                      -- Lualine config
+require('lualine').setup({
+    options = { globalstatus = true },
+    sections = { lualine_c = { 'lsp_progress' } }
+})
 
                                                                       -- Setup nvim-cmp.
 vim.g.completeopt="menu,menuone,noselect,noinsert"
@@ -171,14 +171,8 @@ lspconfig.sumneko_lua.setup {
 }
 lspconfig.pyright.setup { capabilities = capabilities }
 lspconfig.omnisharp.setup {
-  ---------------------------------------------
-  --              Installation               --
-  -- brew tap                                --
-  -- brew uninstall mono                     --
-  -- brew install omnisharp/omnisharp-roslyn --
-  ---------------------------------------------
   filetypes = {'cs'},
-  cmd = {"/usr/local/bin/omnisharp", "-lsp", "--hostPID", tostring(vim.fn.getpid())},
+  cmd = {"mono", "/Users/ankush/.cache/omnisharp-vim/omnisharp-roslyn/OmniSharp.exe", "-lsp", "--hostPID", tostring(vim.fn.getpid())},
   root_dir = lspconfig.util.root_pattern("*.sln");
   capabilities = capabilities
 }
@@ -214,20 +208,68 @@ require('telescope').setup {
 
                                                                       -- Dashboard config
 vim.g.dashboard_default_executive = 'telescope'
-vim.g['dashboard_custom_header'] = {
-  [[ ]],
-  [[██     ██ ███████ ███████ ██████  ██       ███████ ████████ ███████ ]],
-  [[██     ██ ██      ██      ██   ██ ██       ██         ██    ██      ]],
-  [[██  █  ██ █████   █████   ██████  ██       █████      ██    ███████ ]],
-  [[██ ███ ██ ██      ██      ██   ██ ██       ██         ██         ██ ]],
-  [[ ███ ███  ███████ ███████ ███████ ████████ ████████   ██    ███████ ]],
-  [[ ]],
-  [[                                ████   ██ ██    ██ ██ ████  ████    ]],
-  [[                                ██ ██  ██ ██    ██ ██ ██ ████ ██    ]],
-  [[                                ██  ██ ██  ██  ██  ██ ██  ██  ██    ]],
-  [[                                ██   ████   ████   ██ ██      ██    ]],
-  [[ ]]
-}
+
+----------- GAMEBOY -----------------
+-- vim.g['dashboard_custom_header'] = {
+-- [[   __________________________ ]],
+-- [[  |OFF  oON                  |]],
+-- [[  | .----------------------. |]],
+-- [[  | |  .----------------.  | |]],
+-- [[  | |()|                |  | |]],
+-- [[  | |  |   Weeblets     |  | |]],
+-- [[  | |  |       NVIM     |  | |]],
+-- [[  | |  |       Config   |  | |]],
+-- [[  | |  |                |  | |]],
+-- [[  | |  '----------------'  | |]],
+-- [[  | |__GAME BOY____________/ |]],
+-- [[  |          ________        |]],
+-- [[  |    .    (Nintendo)       |]],
+-- [[  |  _| |_   """"""""   .-.  |]],
+-- [[  |-[_   _]-       .-. (   ) |]],
+-- [[  |   |_|         (   ) '-'  |]],
+-- [[  |    '           '-'   A   |]],
+-- [[  |                 B        |]],
+-- [[  |          ___   ___       |]],
+-- [[  |         (___) (___)  ,., |]],
+-- [[  |        select start ;:;: |]],
+-- [[  |                    ,;:;' /]],
+-- [[  |                   ,:;:'.' ]],
+-- [[  '-----------------------`   ]]}
+
+-- -------------------------------------
+vim.g.dashboard_custom_header = {
+[[                       .,,uod8B8bou,,.                                ]],
+[[              ..,uod8BBBBBBBBBBBBBBBBRPFT?l!i:.                       ]],
+[[         ,=m8BBBBBBBBBBBBBBBRPFT?!||||||||||||||                      ]],
+[[         !...:!TVBBBRPFT||||||||||!!^^""'   ||||                      ]],
+[[         !.......:!?|||||!!^^""'            ||||                      ]],
+[[         !.........||||                     ||||                      ]],
+[[         !.........||||  ## >_              ||||                      ]],
+[[         !.........||||                     ||||                      ]],
+[[         !.........||||                     ||||                      ]],
+[[         !.........||||                     ||||                      ]],
+[[         !.........||||                     ||||                      ]],
+[[         `.........||||                    ,||||                      ]],
+[[          .;.......||||               _.-!!|||||                      ]],
+[[   .,uodWBBBBb.....||||       _.-!!|||||||||!:'                       ]],
+[[!YBBBBBBBBBBBBBBb..!|||:..-!!|||||||!iof68BBBBBb....                  ]],
+[[!..YBBBBBBBBBBBBBBb!!||||||||!iof68BBBBBBRPFT?!::   `.                ]],
+[[!....YBBBBBBBBBBBBBBbaaitf68BBBBBBRPFT?!:::::::::     `.              ]],
+[[!......YBBBBBBBBBBBBBBBBBBBRPFT?!::::::;:!^"`;:::       `.            ]],
+[[!........YBBBBBBBBBBRPFT?!::::::::::^''...::::::;         iBBbo.      ]],
+[[`..........YBRPFT?!::::::::::::::::::::::::;iof68bo.      WBBBBbo.    ]],
+[[  `..........:::::::::::::::::::::::;iof688888888888b.     `YBBBP^'   ]],
+[[    `........::::::::::::::::;iof688888888888888888888b.     `        ]],
+[[      `......:::::::::;iof688888888888888888888888888888b.            ]],
+[[        `....:::;iof688888888888888888888888888888888899fT!           ]],
+[[          `..::!8888888888888888888888888888888899fT|!^"'             ]],
+[[            `' !!988888888888888888888888899fT|!^"'                   ]],
+[[                `!!8888888888888888899fT|!^"'                         ]],
+[[                  `!988888888899fT|!^"'                               ]],
+[[                    `!9899fT|!^"'                                     ]],
+[[                      `!^"'                                           ]]}
+
+
 vim.g.dashboard_custom_section = {
   a = { description = {'  Find Files      '}, command = ':Telescope find_files' },
   b = { description = {'  Recent Files   '}, command = ':Telescope oldfiles' },
@@ -275,6 +317,8 @@ map("n", "<Leader>th", ":ToggleTerm<CR>")                                     --
 map("t", "<Esc>", [[<C-\><C-n>:ToggleTerm<CR>]])                              -- Close terminal
 map("n", "<Leader>h", ":noh<CR>")                                             -- No highlight
 map("n", "<Leader>ld", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- code diagnostics
+map("n", "<Leader>lf", ":lua vim.lsp.buf.formatting()<CR>")                   -- format code
+map("n", "<Leader>lD", ":lua vim.lsp.buf.definition()<CR>")                   -- goto definition
 map("n", "<C-p>", ":MarkdownPreviewToggle<CR>")                               -- Markdown preview
 map("n", "L", ":bp<CR>")                                                      -- Buffer previous
 map("n", "H", ":bn<CR>")                                                      -- buffer next
