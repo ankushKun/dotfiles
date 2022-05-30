@@ -26,13 +26,16 @@ vim.opt.smartcase = true
 vim.opt.smartindent = true
 vim.opt.smarttab = true
 vim.opt.clipboard = "unnamedplus"
+vim.opt.guifont = "MesloLGS NF"
 
 -- Neovide options
 if (vim.fn.exists('neovide') == 1) then
     vim.g.neovide_transparency = 0.9
     vim.g.neovide_input_use_logo = 1
-    vim.opt.guifont = "MesloLGS NF"
 end
+
+-- Fix pasting emojis
+vim.cmd("let $LANG='en_US.UTF-8'")
 
 -- custom command to open config
 vim.cmd(':command! Config e ~/.config/nvim/init.lua')
@@ -56,6 +59,7 @@ require('packer').startup(function()
     use 'hrsh7th/cmp-path'
     use 'hrsh7th/cmp-cmdline'
     use 'hrsh7th/nvim-cmp'
+    use 'jose-elias-alvarez/null-ls.nvim'
     use { 'kyazdani42/nvim-tree.lua',
         requires = { 'kyazdani42/nvim-web-devicons' }
     }
@@ -74,13 +78,14 @@ require('packer').startup(function()
     use 'L3MON4D3/LuaSnip'
     use 'wakatime/vim-wakatime'
     use { "akinsho/toggleterm.nvim", tag = 'v1.*',
-        config = function()  end
+        config = function() end
     }
     use { 'iamcco/markdown-preview.nvim', run = 'cd app && npm install' }
     use 'seandewar/killersheep.nvim'
     use 'alec-gibson/nvim-tetris'
     use 'mg979/vim-visual-multi'
     use 'folke/which-key.nvim'
+    use 'windwp/nvim-autopairs'
     -- use 'OmniSharp/omnisharp-vim'
 end)
 
@@ -187,6 +192,7 @@ require('nvim-lsp-installer').setup {
 
 local lspconfig = require("lspconfig")
 local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
+
 lspconfig.sumneko_lua.setup {
     capabilities = capabilities,
     settings = {
@@ -200,7 +206,7 @@ lspconfig.sumneko_lua.setup {
 }
 lspconfig.pyright.setup { capabilities = capabilities }
 lspconfig.omnisharp.setup {
-    cmd = {"mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe", "--languageserver", "--hostPID", tostring(vim.fn.getpid())},
+    cmd = { "mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe", "--languageserver", "--hostPID", tostring(vim.fn.getpid()) },
     root_dir = lspconfig.util.root_pattern("*.sln");
     capabilities = capabilities,
     use_mono = true
@@ -209,6 +215,20 @@ lspconfig.tsserver.setup { capabilities = capabilities }
 lspconfig.yamlls.setup { capabilities = capabilities }
 lspconfig.html.setup { capabilities = capabilities }
 lspconfig.cssls.setup { capabilities = capabilities }
+
+local nls = require('null-ls')
+nls.setup {
+    sources = {
+        nls.builtins.formatting.black
+    }
+}
+
+--------------------------------------------------------------------
+--                          AUTOPAIRS                             --
+--------------------------------------------------------------------
+require('nvim-autopairs').setup {
+    enable_check_bracket_line = true
+}
 
 --------------------------------------------------------------------
 --                        TREESITTER                              --
@@ -239,15 +259,14 @@ require('nvim-treesitter.configs').setup({
 })
 
 --------------------------------------------------------------------
---                          NVIMTREE                              --
---------------------------------------------------------------------
-require('nvim-tree').setup()
-
---------------------------------------------------------------------
 --                         BUFFERLINE                             --
 --------------------------------------------------------------------
-require('bufferline').setup() -- gives errors
-
+require('bufferline').setup {}
+--
+--------------------------------------------------------------------
+--                          NVIMTREE                              --
+--------------------------------------------------------------------
+require('nvim-tree').setup {}
 
 --------------------------------------------------------------------
 --                         TELESCOPE                              --
