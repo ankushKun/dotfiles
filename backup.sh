@@ -3,7 +3,7 @@
 cd ~/Developer/dotfiles
 
 rm -rf ~/Developer/dotfiles/backup/macOS/*
-mv ~/Developer/dotfiles/macOS/* ~/Developer/dotfiles/backup/macOS/
+mv -r ~/Developer/dotfiles/macOS/* ~/Developer/dotfiles/backup/macOS/
 
 rm -rf ~/Developer/dotfiles/macOS/*
 
