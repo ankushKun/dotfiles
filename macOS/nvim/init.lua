@@ -77,14 +77,12 @@ require('packer').startup(function()
     use 'tpope/vim-commentary'
     use 'L3MON4D3/LuaSnip'
     use 'wakatime/vim-wakatime'
-    use { "akinsho/toggleterm.nvim", tag = 'v1.*',
-        config = function() end
-    }
+    use { "akinsho/toggleterm.nvim", tag = 'v1.*' }
     use { 'iamcco/markdown-preview.nvim', run = 'cd app && npm install' }
     use 'seandewar/killersheep.nvim'
     use 'alec-gibson/nvim-tetris'
     use 'mg979/vim-visual-multi'
-    use 'folke/which-key.nvim'
+    -- use 'folke/which-key.nvim'
     use 'windwp/nvim-autopairs'
     -- use 'OmniSharp/omnisharp-vim'
 end)
@@ -317,10 +315,14 @@ vim.g.dashboard_custom_header = {
     [[                    `!9899fT|!^"'                                     ]],
     [[                      `!^"'                                           ]] }
 
+-- vim.g.dashboard_custom_header = {
+
+-- }
+
 vim.g.dashboard_custom_section = {
-    a = { description = { '  Find Files     ' }, command = ':Telescope find_files' },
-    b = { description = { '  Recent Files   ' }, command = ':Telescope oldfiles' },
-    c = { description = { '  Config         ' }, command = ':e ~/.config/nvim/init.lua' },
+    a = { description = { '   Find Files     ' }, command = ':Telescope find_files' },
+    b = { description = { '   Recent Files   ' }, command = ':Telescope oldfiles' },
+    c = { description = { '   Config         ' }, command = ':e ~/.config/nvim/init.lua' },
 }
 vim.g.dashboard_custom_footer = { 'Waste 100 hours to save 1 hour - Vim Philosophy' }
 
@@ -334,7 +336,7 @@ vim.g.mkdp_echo_preview_url = 1
 --------------------------------------------------------------------
 --                      GITHUB COPILOT                            --
 --------------------------------------------------------------------
-vim.cmd('imap <silent><script><expr> <C-Tab> copilot#Accept("")') -- <C-Tab> works in Neovide
+vim.cmd('imap <silent><script><expr> <C-x> copilot#Accept("")') -- <C-x> to accept
 vim.g.copilot_no_tab_map = true
 
 --------------------------------------------------------------------
@@ -378,6 +380,7 @@ map("n", "<Leader>h", ":noh<CR>") -- No highlight
 map("n", "<Leader>ld", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- code diagnostics
 map("n", "<Leader>lf", ":lua vim.lsp.buf.formatting()<CR>") -- format code
 map("n", "<Leader>lD", ":lua vim.lsp.buf.definition()<CR>") -- goto definition
+map("n", "<Leader>lh", ":lua vim.lsp.buf.hover()<CR>") -- goto definition
 map("n", "<C-p>", ":MarkdownPreviewToggle<CR>") -- Markdown preview
 map("n", "L", ":BufferNext<CR>") -- Buffer previous
 map("n", "H", ":BufferPrevious<CR>") -- buffer next

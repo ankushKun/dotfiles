@@ -1,5 +1,5 @@
 window:
-  opacity: 0.95
+  opacity: 0.9
   class:
     instance: Alacritty
     general: Alacritty
@@ -7,8 +7,8 @@ window:
     columns: 100
     lines: 30
   padding:
-    x: 1
-    y: 1
+    x: 0
+    y: 0
   margin:
     x: 0
     y: 0
