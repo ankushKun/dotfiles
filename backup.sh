@@ -2,10 +2,11 @@
 
 cd ~/Developer/dotfiles
 
-rm -rf ~/Developer/dotfiles/backup/macOS/* -y
-mv -r ~/Developer/dotfiles/macOS/* ~/Developer/dotfiles/backup/macOS/
+rm -rf ~/Developer/dotfiles/backup/macOS
+mv ~/Developer/dotfiles/macOS ~/Developer/dotfiles/backup/
 
-rm -rf ~/Developer/dotfiles/macOS/*
+rm -rf ~/Developer/dotfiles/macOS
+mkdir ~/Developer/dotfiles/macOS
 
 cp -r ~/.config/nvim ~/Developer/dotfiles/macOS/
 cp -r ~/.config/alacritty ~/Developer/dotfiles/macOS/
