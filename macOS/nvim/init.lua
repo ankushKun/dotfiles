@@ -48,7 +48,7 @@ require('packer').startup(function()
     use { 'nvim-lualine/lualine.nvim',
         requires = { 'kyazdani42/nvim-web-devicons' }
     }
-    use 'akinsho/bufferline.nvim'
+    use { 'akinsho/bufferline.nvim' }
     use 'ghifarit53/tokyonight-vim'
     use 'nvim-treesitter/nvim-treesitter'
     use { 'williamboman/nvim-lsp-installer',
@@ -63,9 +63,9 @@ require('packer').startup(function()
     use { 'kyazdani42/nvim-tree.lua',
         requires = { 'kyazdani42/nvim-web-devicons' }
     }
-    use { 'romgrk/barbar.nvim',
-        requires = { 'kyazdani42/nvim-web-devicons' }
-    }
+    -- use { 'romgrk/barbar.nvim',
+    --     requires = { 'kyazdani42/nvim-web-devicons' }
+    -- }
     use 'glepnir/dashboard-nvim'
     use { 'nvim-telescope/telescope.nvim',
         requires = { 'nvim-lua/plenary.nvim' }
@@ -259,12 +259,58 @@ require('nvim-treesitter.configs').setup({
 --------------------------------------------------------------------
 --                         BUFFERLINE                             --
 --------------------------------------------------------------------
-require('bufferline').setup {}
---
+require('bufferline').setup {
+    options = {
+        indicator_icon = "",
+        offsets = { { filetype = "NvimTree", text = "File Explorer", text_align = "center" } },
+        diagnostics = "nvim_lsp",
+        diagnostics_update_in_insert = false,
+        diagnostics_indicator = function(count)
+            return "(" .. count .. ")"
+        end,
+        show_buffer_close_icons = false,
+        show_close_icon = false,
+        sort_by = "insert_at_end"
+    }
+}
+
 --------------------------------------------------------------------
 --                          NVIMTREE                              --
 --------------------------------------------------------------------
-require('nvim-tree').setup {}
+vim.g.nvim_tree_icons = {
+    default = "",
+    symlink = "",
+    git = {
+        unstaged = "",
+        staged = "S",
+        unmerged = "",
+        renamed = "➜",
+        deleted = "",
+        untracked = "U",
+        ignored = "◌",
+    },
+    folder = {
+        default = "",
+        open = "",
+        empty = "",
+        empty_open = "",
+        symlink = "",
+    },
+}
+
+require('nvim-tree').setup {
+    renderer = {
+        indent_markers = {
+            enable = true,
+            icons = {
+                corner = "└ ",
+                edge = "│ ",
+                item = "│ ",
+                none = "  ",
+            }
+        }
+    }
+}
 
 --------------------------------------------------------------------
 --                         TELESCOPE                              --
@@ -284,36 +330,20 @@ require('telescope').setup {
 --------------------------------------------------------------------
 vim.g.dashboard_default_executive = 'telescope'
 vim.g.dashboard_custom_header = {
-    [[                       .,,uod8B8bou,,.                                ]],
-    [[              ..,uod8BBBBBBBBBBBBBBBBRPFT?l!i:.                       ]],
-    [[         ,=m8BBBBBBBBBBBBBBBRPFT?!||||||||||||||                      ]],
-    [[         !...:!TVBBBRPFT||||||||||!!^^""'   ||||                      ]],
-    [[         !.......:!?|||||!!^^""'            ||||                      ]],
-    [[         !.........||||                     ||||                      ]],
-    [[         !.........||||  ## >_              ||||                      ]],
-    [[         !.........||||                     ||||                      ]],
-    [[         !.........||||                     ||||                      ]],
-    [[         !.........||||                     ||||                      ]],
-    [[         !.........||||                     ||||                      ]],
-    [[         `.........||||                    ,||||                      ]],
-    [[          .;.......||||               _.-!!|||||                      ]],
-    [[   .,uodWBBBBb.....||||       _.-!!|||||||||!:'                       ]],
-    [[!YBBBBBBBBBBBBBBb..!|||:..-!!|||||||!iof68BBBBBb....                  ]],
-    [[!..YBBBBBBBBBBBBBBb!!||||||||!iof68BBBBBBRPFT?!::   `.                ]],
-    [[!....YBBBBBBBBBBBBBBbaaitf68BBBBBBRPFT?!:::::::::     `.              ]],
-    [[!......YBBBBBBBBBBBBBBBBBBBRPFT?!::::::;:!^"`;:::       `.            ]],
-    [[!........YBBBBBBBBBBRPFT?!::::::::::^''...::::::;         iBBbo.      ]],
-    [[`..........YBRPFT?!::::::::::::::::::::::::;iof68bo.      WBBBBbo.    ]],
-    [[  `..........:::::::::::::::::::::::;iof688888888888b.     `YBBBP^'   ]],
-    [[    `........::::::::::::::::;iof688888888888888888888b.     `        ]],
-    [[      `......:::::::::;iof688888888888888888888888888888b.            ]],
-    [[        `....:::;iof688888888888888888888888888888888899fT!           ]],
-    [[          `..::!8888888888888888888888888888888899fT|!^"'             ]],
-    [[            `' !!988888888888888888888888899fT|!^"'                   ]],
-    [[                `!!8888888888888888899fT|!^"'                         ]],
-    [[                  `!988888888899fT|!^"'                               ]],
-    [[                    `!9899fT|!^"'                                     ]],
-    [[                      `!^"'                                           ]] }
+    [[ ]],
+    [[ ]],
+    [[   ,-.       _,---._ __  / \   ]],
+    [[  /  )    .-'       `./ /   \  ]],
+    [[ (  (   ,'            `/    /| ]],
+    [[  \  `-"             \'\   / | ]],
+    [[   `.              ,  \ \ /  | ]],
+    [[    /`.          ,'-`----Y   | ]],
+    [[   (            ;        |   ' ]],
+    [[   |  ,-.    ,-'         |  /  ]],
+    [[   |  | (   |        ^_^ | /   ]],
+    [[   )  |  \  `.___________|/    ]],
+    [[   `--'   `--'                 ]],
+}
 
 -- vim.g.dashboard_custom_header = {
 
@@ -382,5 +412,5 @@ map("n", "<Leader>lf", ":lua vim.lsp.buf.formatting()<CR>") -- format code
 map("n", "<Leader>lD", ":lua vim.lsp.buf.definition()<CR>") -- goto definition
 map("n", "<Leader>lh", ":lua vim.lsp.buf.hover()<CR>") -- goto definition
 map("n", "<C-p>", ":MarkdownPreviewToggle<CR>") -- Markdown preview
-map("n", "L", ":BufferNext<CR>") -- Buffer previous
-map("n", "H", ":BufferPrevious<CR>") -- buffer next
+map("n", "L", ":BufferLineCycleNext<CR>") -- Buffer previous
+map("n", "H", ":BufferLineCyclePrev<CR>") -- buffer next

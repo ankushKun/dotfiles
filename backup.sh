@@ -12,6 +12,7 @@ cp -r ~/.config/nvim ~/Developer/dotfiles/macOS/
 cp -r ~/.config/alacritty ~/Developer/dotfiles/macOS/
 cp -r ~/.zshrc ~/Developer/dotfiles/macOS/zshrc
 cp -r ~/.tmux.conf ~/Developer/dotfiles/macOS/tmux.conf
+cp -r ~/.p10k.zsh ~/Developer/dotfiles/macOS/p10k.zsh
 
 git add .
 git commit -m "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
