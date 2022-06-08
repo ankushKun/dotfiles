@@ -20,7 +20,7 @@ shell:
   args:
     - -l
     - -c
-    - "tmux attach || tmux"
+    - "tmux"
 
 font:
   size: 15
