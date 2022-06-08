@@ -2,3 +2,6 @@
  8 files changed, 1739 insertions(+), 52 deletions(-)
  create mode 100644 log.txt
  create mode 100644 macOS/p10k.zsh
+[main a844464] update dotfiles - 2022-06-08 12:00:00
+ 7 files changed, 1742 insertions(+), 52 deletions(-)
+ create mode 100644 backup/macOS/p10k.zsh
