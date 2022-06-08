@@ -12,7 +12,7 @@ window:
   margin:
     x: 0
     y: 0
-  
+  decorations: none
   dynamic_title: true
 
 shell:
