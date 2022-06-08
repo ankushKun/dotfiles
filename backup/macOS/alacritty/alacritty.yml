@@ -15,6 +15,13 @@ window:
   
   dynamic_title: true
 
+shell:
+  program: /bin/zsh
+  args:
+    - -l
+    - -c
+    - "tmux attach || tmux"
+
 font:
   size: 15
   normal:
