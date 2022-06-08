@@ -1,5 +1,9 @@
 #!/bin/bash
 
+echo " "
+echo "---------------"
+echo "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
+
 cd ~/Developer/dotfiles
 
 rm -rf ~/Developer/dotfiles/backup/macOS
@@ -17,3 +21,8 @@ cp -r ~/.p10k.zsh ~/Developer/dotfiles/macOS/p10k.zsh
 git add .
 git commit -m "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
 git push
+
+echo " "
+echo "done"
+echo "---------------"
+
