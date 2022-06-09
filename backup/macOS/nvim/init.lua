@@ -400,7 +400,7 @@ end
 
 map("n", "<Leader>q", ":q<CR>") -- quite current budder
 map("n", "<Leader>w", ":w<CR>") -- Write current buffer
-map("n", "<Leader>c", ":BufferClose<CR>") -- Close buffer
+map("n", "<Leader>c", ":bd<CR>") -- Close buffer
 map("n", "<Leader>e", ":NvimTreeToggle<CR>") -- Toggle file explorer
 map("n", "<Leader>ps", ":PackerSync<CR>") -- Packer Sync
 map("n", "<Leader>tf", ":ToggleTerm direction='float'<CR>") -- Open floating terminal
