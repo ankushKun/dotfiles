@@ -131,3 +131,5 @@ fi
 export ANDROID_SDK_ROOT=/Volumes/1TB/Applications-Ext/AndroidStudio/Android/sdk
 export PATH="$ANDROID_SDK_ROOT/platform-tools:$PATH"
 export PATH="$ANDROID_SDK_ROOT/emulator:$PATH"
+
+export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
