@@ -116,17 +116,7 @@ require('lualine').setup({
 vim.g.completeopt = "menu,menuone,noselect,noinsert"
 local cmp = require 'cmp'
 cmp.setup({
-    snippet = {
-        -- REQUIRED - you must specify a snippet engine
-        expand = function(args)
-            require('luasnip').lsp_expand(args.body) -- For `luasnip` users.
-        end
-    },
     mapping = cmp.mapping.preset.insert({
-        --    ['<C-b>'] = cmp.mapping.scroll_docs(-4),
-        --    ['<C-f>'] = cmp.mapping.scroll_docs(4),
-        --    ['<C-Space>'] = cmp.mapping.complete(),
-        --    ['<C-e>'] = cmp.mapping.abort(),
         ['<CR>'] = cmp.mapping.confirm({ select = true }), -- Accept currently selected item. Set `select` to `false` to only confirm explicitly selected items.
         ['<Tab>'] = function(fallback)
             local luasnip = require('luasnip')
@@ -150,17 +140,8 @@ cmp.setup({
         end,
     }),
     sources = cmp.config.sources({
-        { name = 'nvim_lsp' }
-    }),
-})
-
--- Set configuration for specific filetype.
-cmp.setup.filetype('gitcommit', {
-    sources = cmp.config.sources({
-        { name = 'cmp_git' }, -- You can specify the `cmp_git` source if you were installed it.
-    }, {
-        { name = 'buffer' },
-    })
+        { name = 'nvim_lsp' },
+    }, { name = 'buffer' }),
 })
 
 -- Use buffer source for `/` (if you enabled `native_menu`, this won't work anymore).
@@ -190,6 +171,7 @@ require('nvim-lsp-installer').setup {
 
 local lspconfig = require("lspconfig")
 local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
+capabilities = require('cmp_nvim_lsp').update_capabilities(capabilities)
 
 lspconfig.sumneko_lua.setup {
     capabilities = capabilities,
@@ -202,7 +184,7 @@ lspconfig.sumneko_lua.setup {
         }
     }
 }
-lspconfig.pylsp.setup { capabilities = capabilities }
+lspconfig.pyright.setup { capabilities = capabilities }
 lspconfig.omnisharp.setup {
     cmd = { "mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe", "--languageserver", "--hostPID", tostring(vim.fn.getpid()) },
     root_dir = lspconfig.util.root_pattern("*.sln");
@@ -331,8 +313,7 @@ require('telescope').setup {
 --------------------------------------------------------------------
 vim.g.dashboard_default_executive = 'telescope'
 vim.g.dashboard_custom_header = {
-    [[ ]],
-    [[ ]],
+    [[ ]], [[ ]],
     [[   ,-.       _,---._ __  / \   ]],
     [[  /  )    .-'       `./ /   \  ]],
     [[ (  (   ,'            `/    /| ]],
