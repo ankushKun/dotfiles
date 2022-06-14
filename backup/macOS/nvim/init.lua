@@ -184,7 +184,7 @@ lspconfig.sumneko_lua.setup {
         }
     }
 }
-lspconfig.pylsp.setup {
+lspconfig.pyright.setup {
     capabilities = capabilities
 }
 lspconfig.omnisharp.setup {
@@ -201,9 +201,9 @@ lspconfig.cssls.setup { capabilities = capabilities }
 
 local nls = require('null-ls')
 nls.setup {
-    -- sources = {
-    -- nls.builtins.formatting.black
-    -- }
+    sources = {
+    nls.builtins.formatting.black
+    }
 }
 
 --------------------------------------------------------------------
