@@ -12,7 +12,7 @@ window:
   margin:
     x: 0
     y: 0
-  decorations: buttonless
+  decorations: none
   dynamic_title: true
 
 shell:
@@ -23,7 +23,7 @@ shell:
     - "tmux"
 
 font:
-  size: 16
+  size: 15
   normal:
     family: MesloLGS NF
     style: Regular
