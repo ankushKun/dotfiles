@@ -1,5 +1,5 @@
 window:
-  opacity: 0.85
+  # opacity: 0.85
   class:
     instance: Alacritty
     general: Alacritty
@@ -12,7 +12,7 @@ window:
   margin:
     x: 0
     y: 0
-  decorations: none
+  decorations: buttonless
   dynamic_title: true
 
 shell:
