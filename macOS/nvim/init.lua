@@ -26,11 +26,11 @@ vim.opt.smartcase = true
 vim.opt.smartindent = true
 vim.opt.smarttab = true
 vim.opt.clipboard = "unnamedplus"
-vim.opt.guifont = "MesloLGS NF"
+vim.opt.guifont = "MesloLGS NF:h15"
 
 -- Neovide options
 if (vim.fn.exists('neovide') == 1) then
-    vim.g.neovide_transparency = 0.8
+    vim.g.neovide_transparency = 0.85
     vim.g.neovide_input_use_logo = 1
 end
 
