@@ -118,7 +118,7 @@ export EDITOR=nvim
 alias v=nvim
 alias nv=neovide\ --multigrid
 
-alias dev="cd /Volumes/500GB/Developer"
+# alias dev="cd /Volumes/500GB/Developer"
 
 export PATH="/Users/ankush/Library/Python/3.8/bin:$PATH"
 export PATH="$PATH:/Users/ankush/.spicetify"
