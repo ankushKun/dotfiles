@@ -23,7 +23,7 @@ shell:
     - "tmux"
 
 font:
-  size: 15
+  size: 16
   normal:
     family: MesloLGS NF
     style: Regular
