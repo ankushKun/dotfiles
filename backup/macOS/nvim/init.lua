@@ -85,6 +85,7 @@ require('packer').startup(function()
     -- use 'folke/which-key.nvim'
     use 'windwp/nvim-autopairs'
     -- use 'OmniSharp/omnisharp-vim'
+    use 'tpope/vim-sleuth'
 end)
 
 
