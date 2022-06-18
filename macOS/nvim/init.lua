@@ -339,7 +339,6 @@ dashboard.section.header.val = {
 
 -- Set menu
 dashboard.section.buttons.val = {
-    dashboard.button( "e", " New File" , ":ene <BAR> startinsert <CR>"),
     dashboard.button( "f", " Find File", ":Telescope find_files<CR>"),
     dashboard.button( "l", " Find Word", ":Telescope live_grep<CR>"),
     dashboard.button( "r", " Recent"   , ":Telescope oldfiles<CR>"),
