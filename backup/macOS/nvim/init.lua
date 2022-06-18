@@ -66,7 +66,7 @@ require('packer').startup(function()
     -- use { 'romgrk/barbar.nvim',
     --     requires = { 'kyazdani42/nvim-web-devicons' }
     -- }
-    use 'glepnir/dashboard-nvim'
+    use 'mhinz/vim-startify'
     use { 'nvim-telescope/telescope.nvim',
         requires = { 'nvim-lua/plenary.nvim' }
     }
@@ -319,38 +319,7 @@ require('telescope').setup {
 --------------------------------------------------------------------
 --                        DASHBOARD                               --
 --------------------------------------------------------------------
-local home = os.getenv('HOME')
-  local db = require('dashboard')
-  db.preview_command = 'cat | lolcat -F 0.3'
-  db.preview_file_height = 12
-  db.preview_file_width = 80
-db.custom_header = ""
-  db.custom_center = {
-      {icon = '  ',
-      desc = 'Recently latest session                  ',
-      shortcut = 'SPC s l',
-      action ='SessionLoad'},
-      {icon = '  ',
-      desc = 'Recently opened files                   ',
-      action =  'DashboardFindHistory',
-      shortcut = 'SPC f h'},
-      {icon = '  ',
-      desc = 'Find  File                              ',
-      action = 'Telescope find_files find_command=rg,--hidden,--files',
-      shortcut = 'SPC f f'},
-      {icon = '  ',
-      desc ='File Browser                            ',
-      action =  'Telescope file_browser',
-      shortcut = 'SPC f b'},
-      {icon = '  ',
-      desc = 'Find  word                              ',
-      action = 'Telescope live_grep',
-      shortcut = 'SPC f w'},
-      {icon = '  ',
-      desc = 'Open Personal dotfiles                  ',
-      action = 'Telescope dotfiles path=' .. home ..'/.dotfiles',
-      shortcut = 'SPC f d'},
-    }
+
 --------------------------------------------------------------------
 --                      MARKDOWN PREVIEW                          --
 --------------------------------------------------------------------

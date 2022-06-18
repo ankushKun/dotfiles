@@ -104,11 +104,6 @@ _G.packer_plugins = {
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/copilot.vim",
     url = "https://github.com/github/copilot.vim"
   },
-  ["dashboard-nvim"] = {
-    loaded = true,
-    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/dashboard-nvim",
-    url = "https://github.com/glepnir/dashboard-nvim"
-  },
   ["killersheep.nvim"] = {
     loaded = true,
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/killersheep.nvim",
@@ -213,6 +208,11 @@ _G.packer_plugins = {
     loaded = true,
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/vim-sleuth",
     url = "https://github.com/tpope/vim-sleuth"
+  },
+  ["vim-startify"] = {
+    loaded = true,
+    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/vim-startify",
+    url = "https://github.com/mhinz/vim-startify"
   },
   ["vim-visual-multi"] = {
     loaded = true,
