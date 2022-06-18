@@ -14,7 +14,7 @@ vim.opt.expandtab = true
 vim.opt.tabstop = 4
 vim.opt.softtabstop = 4
 vim.opt.shiftwidth = 4
-vim.opt.textwidth = 99999
+vim.opt.textwidth = 9999
 vim.opt.wrap = false
 vim.opt.linebreak = false
 vim.opt.termguicolors = true
@@ -319,26 +319,38 @@ require('telescope').setup {
 --------------------------------------------------------------------
 --                        DASHBOARD                               --
 --------------------------------------------------------------------
-local db = require('dashboard')
-db.custom_header = {
-    [[   ,-.       _,---._ __  / \   ]],
-    [[  /  )    .-'       `./ /   \  ]],
-    [[ (  (   ,'            `/    /| ]],
-    [[  \  `-"             \'\   / | ]],
-    [[   `.              ,  \ \ /  | ]],
-    [[    /`.          ,'-`----Y   | ]],
-    [[   (            ;        |   ' ]],
-    [[   |  ,-.    ,-'         |  /  ]],
-    [[   |  | (   |            | /   ]],
-    [[   )  |  \  `.___________|/    ]],
-    [[   `--'   `--'                 ]],
-}
-db.custom_center = {
-    { icon = "📁", text = "Recent Files", cmd = "DashboardFindHistory" },
-    { icon = "📰", text = "Find Word", cmd = "Telescope live_grep" },
-}
-db.custom_footer = { 'Waste 100 hours to save 1 hour - Vim Philosophy' }
-
+local home = os.getenv('HOME')
+  local db = require('dashboard')
+  db.preview_command = 'cat | lolcat -F 0.3'
+  db.preview_file_height = 12
+  db.preview_file_width = 80
+db.custom_header = ""
+  db.custom_center = {
+      {icon = '  ',
+      desc = 'Recently latest session                  ',
+      shortcut = 'SPC s l',
+      action ='SessionLoad'},
+      {icon = '  ',
+      desc = 'Recently opened files                   ',
+      action =  'DashboardFindHistory',
+      shortcut = 'SPC f h'},
+      {icon = '  ',
+      desc = 'Find  File                              ',
+      action = 'Telescope find_files find_command=rg,--hidden,--files',
+      shortcut = 'SPC f f'},
+      {icon = '  ',
+      desc ='File Browser                            ',
+      action =  'Telescope file_browser',
+      shortcut = 'SPC f b'},
+      {icon = '  ',
+      desc = 'Find  word                              ',
+      action = 'Telescope live_grep',
+      shortcut = 'SPC f w'},
+      {icon = '  ',
+      desc = 'Open Personal dotfiles                  ',
+      action = 'Telescope dotfiles path=' .. home ..'/.dotfiles',
+      shortcut = 'SPC f d'},
+    }
 --------------------------------------------------------------------
 --                      MARKDOWN PREVIEW                          --
 --------------------------------------------------------------------

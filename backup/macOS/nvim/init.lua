@@ -319,9 +319,8 @@ require('telescope').setup {
 --------------------------------------------------------------------
 --                        DASHBOARD                               --
 --------------------------------------------------------------------
-vim.g.dashboard_default_executive = 'telescope'
-vim.g.dashboard_custom_header = {
-    [[ ]], [[ ]],
+local db = require('dashboard')
+db.custom_header = {
     [[   ,-.       _,---._ __  / \   ]],
     [[  /  )    .-'       `./ /   \  ]],
     [[ (  (   ,'            `/    /| ]],
@@ -330,21 +329,15 @@ vim.g.dashboard_custom_header = {
     [[    /`.          ,'-`----Y   | ]],
     [[   (            ;        |   ' ]],
     [[   |  ,-.    ,-'         |  /  ]],
-    [[   |  | (   |        ^_^ | /   ]],
+    [[   |  | (   |            | /   ]],
     [[   )  |  \  `.___________|/    ]],
     [[   `--'   `--'                 ]],
 }
-
--- vim.g.dashboard_custom_header = {
-
--- }
-
-vim.g.dashboard_custom_section = {
-    a = { description = { '   Find Files     ' }, command = ':Telescope find_files' },
-    b = { description = { '   Recent Files   ' }, command = ':Telescope oldfiles' },
-    c = { description = { '   Config         ' }, command = ':e ~/.config/nvim/init.lua' },
+db.custom_center = {
+    { icon = "📁", text = "Recent Files", cmd = "DashboardFindHistory" },
+    { icon = "📰", text = "Find Word", cmd = "Telescope live_grep" },
 }
-vim.g.dashboard_custom_footer = { 'Waste 100 hours to save 1 hour - Vim Philosophy' }
+db.custom_footer = { 'Waste 100 hours to save 1 hour - Vim Philosophy' }
 
 --------------------------------------------------------------------
 --                      MARKDOWN PREVIEW                          --
