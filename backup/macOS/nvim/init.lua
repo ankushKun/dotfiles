@@ -66,7 +66,10 @@ require('packer').startup(function()
     -- use { 'romgrk/barbar.nvim',
     --     requires = { 'kyazdani42/nvim-web-devicons' }
     -- }
-    use 'mhinz/vim-startify'
+    use {
+        'goolord/alpha-nvim',
+        requires = { 'kyazdani42/nvim-web-devicons' }
+    }
     use { 'nvim-telescope/telescope.nvim',
         requires = { 'nvim-lua/plenary.nvim' }
     }
@@ -317,8 +320,16 @@ require('telescope').setup {
 }
 
 --------------------------------------------------------------------
---                        DASHBOARD                               --
+--                           ALPHA                                --
 --------------------------------------------------------------------
+local alpha = require('alpha')
+local dashboard = require('alpha.themes.dashboard')
+dashboard.section.header.val = {[[OK]]}
+dashboard.sections.buttons.val = {
+    dashboard.button("","Quit",":q")
+}
+dashboard.section.footer.val = "Wasted 100 hours to save 1 hour - Vim Philosophy"
+alpha.setup(dashboard.config)
 
 --------------------------------------------------------------------
 --                      MARKDOWN PREVIEW                          --
