@@ -86,7 +86,6 @@ require('packer').startup(function()
     use 'windwp/nvim-autopairs'
     -- use 'OmniSharp/omnisharp-vim'
     use 'tpope/vim-sleuth'
-    use 'anuvyklack/pretty-fold.nvim'
 end)
 
 
@@ -211,11 +210,10 @@ nls.setup {
 --------------------------------------------------------------------
 --                        CODE FOLDING                            --
 --------------------------------------------------------------------
-require('pretty-fold').setup({
-    config = {
-        fill_char = ' ',
-    }
-})
+
+
+
+
 
 --------------------------------------------------------------------
 --                          AUTOPAIRS                             --
