@@ -28,6 +28,11 @@ vim.opt.smarttab = true
 vim.opt.clipboard = "unnamedplus"
 vim.opt.guifont = "MesloLGS NF:h15"
 
+vim.o.fillchars = [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
+vim.o.foldcolumn = '1'
+vim.wo.foldlevel = 99
+vim.wo.foldenable = true
+
 -- Neovide options
 if (vim.fn.exists('neovide') == 1) then
     vim.g.neovide_transparency = 0.85
@@ -63,9 +68,6 @@ require('packer').startup(function()
     use { 'kyazdani42/nvim-tree.lua',
         requires = { 'kyazdani42/nvim-web-devicons' }
     }
-    -- use { 'romgrk/barbar.nvim',
-    --     requires = { 'kyazdani42/nvim-web-devicons' }
-    -- }
     use {
         'goolord/alpha-nvim',
         requires = { 'kyazdani42/nvim-web-devicons' }
@@ -73,7 +75,6 @@ require('packer').startup(function()
     use { 'nvim-telescope/telescope.nvim',
         requires = { 'nvim-lua/plenary.nvim' }
     }
-    -- use 'vimsence/vimsence'
     use 'andweeb/presence.nvim'
     use 'github/copilot.vim'
     use 'JoosepAlviste/nvim-ts-context-commentstring'
@@ -85,10 +86,12 @@ require('packer').startup(function()
     use 'seandewar/killersheep.nvim'
     use 'alec-gibson/nvim-tetris'
     use 'mg979/vim-visual-multi'
-    -- use 'folke/which-key.nvim'
     use 'windwp/nvim-autopairs'
     -- use 'OmniSharp/omnisharp-vim'
     use 'tpope/vim-sleuth'
+    use {'kevinhwang91/nvim-ufo',
+        requires = 'kevinhwang91/promise-async'
+    }
 end)
 
 
@@ -176,6 +179,11 @@ require('nvim-lsp-installer').setup {
 local lspconfig = require("lspconfig")
 local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
 capabilities = require('cmp_nvim_lsp').update_capabilities(capabilities)
+capabilities.textDocument.foldingRange = {
+    dynamicRegistration = false,
+    lineFoldingOnly = true
+}
+require('ufo').setup() -- Code Folding
 
 lspconfig.sumneko_lua.setup {
     capabilities = capabilities,

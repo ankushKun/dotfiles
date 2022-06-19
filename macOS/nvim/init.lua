@@ -28,10 +28,7 @@ vim.opt.smarttab = true
 vim.opt.clipboard = "unnamedplus"
 vim.opt.guifont = "MesloLGS NF:h15"
 
-vim.o.fillchars = [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
-vim.o.foldcolumn = '1'
-vim.wo.foldlevel = 99
-vim.wo.foldenable = true
+vim.opt.fillchars = [[eob: ,fold: ,foldopen:v,foldsep: ,foldclose:>]]
 
 -- Neovide options
 if (vim.fn.exists('neovide') == 1) then
@@ -89,9 +86,6 @@ require('packer').startup(function()
     use 'windwp/nvim-autopairs'
     -- use 'OmniSharp/omnisharp-vim'
     use 'tpope/vim-sleuth'
-    use {'kevinhwang91/nvim-ufo',
-        requires = 'kevinhwang91/promise-async'
-    }
 end)
 
 
@@ -179,11 +173,6 @@ require('nvim-lsp-installer').setup {
 local lspconfig = require("lspconfig")
 local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
 capabilities = require('cmp_nvim_lsp').update_capabilities(capabilities)
-capabilities.textDocument.foldingRange = {
-    dynamicRegistration = false,
-    lineFoldingOnly = true
-}
-require('ufo').setup() -- Code Folding
 
 lspconfig.sumneko_lua.setup {
     capabilities = capabilities,
@@ -252,10 +241,6 @@ require('nvim-treesitter.configs').setup({
         }
     }
 })
-
--- vim.opt.foldmethod = "expr"
--- vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
--- vim.api.cmd('autocmd BufReadPost,FileReadPost * normal zR')
 
 --------------------------------------------------------------------
 --                         BUFFERLINE                             --
@@ -335,14 +320,6 @@ local dashboard = require("alpha.themes.dashboard")
 
 -- Set header
 dashboard.section.header.val = {
-    "                                                     ",
-    "  ███╗   ██╗███████╗ ██████╗ ██╗   ██╗██╗███╗   ███╗ ",
-    "  ████╗  ██║██╔════╝██╔═══██╗██║   ██║██║████╗ ████║ ",
-    "  ██╔██╗ ██║█████╗  ██║   ██║██║   ██║██║██╔████╔██║ ",
-    "  ██║╚██╗██║██╔══╝  ██║   ██║╚██╗ ██╔╝██║██║╚██╔╝██║ ",
-    "  ██║ ╚████║███████╗╚██████╔╝ ╚████╔╝ ██║██║ ╚═╝ ██║ ",
-    "  ╚═╝  ╚═══╝╚══════╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝     ╚═╝ ",
-    "                                                     ",
 }
 
 -- Set menu
@@ -354,29 +331,11 @@ dashboard.section.buttons.val = {
     dashboard.button( "q", " Quit NVIM", ":qa<CR>"),
 }
 
--- Set footer
---   NOTE: This is currently a feature in my fork of alpha-nvim (opened PR #21, will update snippet if added to main)
---   To see test this yourself, add the function as a dependecy in packer and uncomment the footer lines
---   ```init.lua
---   return require('packer').startup(function()
---       use 'wbthomason/packer.nvim'
---       use {
---           'goolord/alpha-nvim', branch = 'feature/startify-fortune',
---           requires = {'BlakeJC94/alpha-nvim-fortune'},
---           config = function() require("config.alpha") end
---       }
---   end)
---   ```
--- local fortune = require("alpha.fortune") 
--- dashboard.section.footer.val = fortune()
-
--- Send config to alpha
 alpha.setup(dashboard.opts)
 
 -- Disable folding on alpha buffer
-vim.cmd([[
-    autocmd FileType alpha setlocal nofoldenable
-]])
+vim.cmd([[autocmd FileType alpha setlocal nofoldenable]])
+
 --------------------------------------------------------------------
 --                      MARKDOWN PREVIEW                          --
 --------------------------------------------------------------------
