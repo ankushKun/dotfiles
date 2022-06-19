@@ -328,6 +328,13 @@ local dashboard = require("alpha.themes.dashboard")
 
 -- Set header
 dashboard.section.header.val = {
+[[    /\_____/\    ]],
+"   /  o   o  \   ",
+"  ( ==  ^  == )  ",
+"   )         (   ",
+"  (           )  ",
+" ( (  )   (  ) ) ",
+[[(__(__)___(__)__)]]
 }
 
 -- Set menu
