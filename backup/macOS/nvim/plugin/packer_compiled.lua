@@ -169,11 +169,6 @@ _G.packer_plugins = {
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/nvim-ts-context-commentstring",
     url = "https://github.com/JoosepAlviste/nvim-ts-context-commentstring"
   },
-  ["nvim-ufo"] = {
-    loaded = true,
-    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/nvim-ufo",
-    url = "https://github.com/kevinhwang91/nvim-ufo"
-  },
   ["nvim-web-devicons"] = {
     loaded = true,
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/nvim-web-devicons",
@@ -194,10 +189,10 @@ _G.packer_plugins = {
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/presence.nvim",
     url = "https://github.com/andweeb/presence.nvim"
   },
-  ["promise-async"] = {
+  ["pretty-fold.nvim"] = {
     loaded = true,
-    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/promise-async",
-    url = "https://github.com/kevinhwang91/promise-async"
+    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/pretty-fold.nvim",
+    url = "https://github.com/anuvyklack/pretty-fold.nvim"
   },
   ["telescope.nvim"] = {
     loaded = true,
