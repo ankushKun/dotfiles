@@ -328,15 +328,16 @@ local dashboard = require("alpha.themes.dashboard")
 
 -- Set header
 dashboard.section.header.val = {
-[[     /\_____/\         ]],
-[[    /  o   o  \  nyaa~ ]],
-[[   ( ==  ^  == )       ]],
-[[    )         (        ]],
-[[   (           )       ]],
-[[  ( (  )   (  ) )      ]],
-[[ (__(__)___(__)__)     ]]
+[[     /\_____/\     ]],
+[[    /  o   o  \    ]],
+[[   ( ==  ^  == )   ]],
+[[    )         (    ]],
+[[   (           )   ]],
+[[  ( (  )   (  ) )  ]],
+[[ (__(__)___(__)__) ]]
 }
 
+dashboard.section.header.opts.hl = "Special"
 -- Set menu
 dashboard.section.buttons.val = {
     dashboard.button( "f", " Find File", ":Telescope find_files<CR>"),
