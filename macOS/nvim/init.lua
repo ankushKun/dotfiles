@@ -86,6 +86,7 @@ require('packer').startup(function()
     use 'windwp/nvim-autopairs'
     -- use 'OmniSharp/omnisharp-vim'
     use 'tpope/vim-sleuth'
+    use 'tpope/vim-fugitive'
 end)
 
 

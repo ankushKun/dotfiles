@@ -12,6 +12,7 @@ window:
   margin:
     x: 0
     y: 0
+  dynamic_padding: false
   decorations: none
   dynamic_title: true
 
