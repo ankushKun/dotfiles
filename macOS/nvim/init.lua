@@ -110,9 +110,13 @@ vim.cmd('colorscheme tokyonight')
 --                         LUALINE                                --
 --------------------------------------------------------------------
 require('lualine').setup({
-    options = { globalstatus = true },
+    options = {
+        globalstatus = true,
+        section_seperators = '',
+        component_seperators = ''
+    },
 })
--- lmao uwu
+
 --------------------------------------------------------------------
 --                     CMP COMPLETION                             --
 --------------------------------------------------------------------
