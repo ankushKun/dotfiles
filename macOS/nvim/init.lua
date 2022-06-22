@@ -20,7 +20,7 @@ vim.opt.linebreak = false
 vim.opt.termguicolors = true
 vim.opt.showmode = false
 vim.opt.scrolloff = 999
-vim.opt.sidescrolloff = 20
+vim.opt.sidescrolloff = 10
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 vim.opt.smartindent = true
@@ -38,6 +38,7 @@ end
 
 -- Fix pasting emojis
 vim.cmd("let $LANG='en_US.UTF-8'")
+
 
 -- custom command to open config
 vim.cmd(':command! Config e ~/.config/nvim/init.lua')
@@ -111,11 +112,11 @@ vim.cmd('colorscheme tokyonight')
 require('lualine').setup({
     options = { globalstatus = true },
 })
-
+-- lmao uwu
 --------------------------------------------------------------------
 --                     CMP COMPLETION                             --
 --------------------------------------------------------------------
-vim.g.completeopt = "menu,menuone,noselect,noinsert"
+vim.g.completeopt = "menu,menuone,noselect,noinsert" -- UWU
 local cmp = require 'cmp'
 
 cmp.setup({
