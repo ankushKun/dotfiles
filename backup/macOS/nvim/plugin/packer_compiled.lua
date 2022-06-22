@@ -104,11 +104,6 @@ _G.packer_plugins = {
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/cmp-path",
     url = "https://github.com/hrsh7th/cmp-path"
   },
-  ["copilot.vim"] = {
-    loaded = true,
-    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/copilot.vim",
-    url = "https://github.com/github/copilot.vim"
-  },
   ["killersheep.nvim"] = {
     loaded = true,
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/killersheep.nvim",
