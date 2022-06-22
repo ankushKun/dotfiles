@@ -197,6 +197,7 @@ lspconfig.omnisharp.setup {
     use_mono = true
 }
 lspconfig.tsserver.setup { capabilities = capabilities }
+lspconfig.tailwindcss.setup { capabilities = capabilities }
 lspconfig.yamlls.setup { capabilities = capabilities }
 lspconfig.html.setup { capabilities = capabilities }
 lspconfig.cssls.setup { capabilities = capabilities }
