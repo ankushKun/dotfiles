@@ -429,10 +429,10 @@ map("n", "<Leader>th", ":ToggleTerm<CR>") -- Open horizontal terminal
 map("t", "<Esc>", [[<C-\><C-n>:ToggleTerm<CR>]]) -- Close terminal
 map("n", "<Leader>h", ":noh<CR>") -- No highlight
 
-map("n", "<Leader>gd", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- code diagnostics
-map("n", "<Leader>gf", ":lua vim.lsp.buf.formatting()<CR>") -- format code
-map("n", "<Leader>gD", ":lua vim.lsp.buf.definition()<CR>") -- goto definition
-map("n", "<Leader>gh", ":lua vim.lsp.buf.hover()<CR>") -- goto definition
+map("n", "gd", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- code diagnostics
+map("n", "<Leader>lf", ":lua vim.lsp.buf.formatting()<CR>") -- format code
+map("n", "gD", ":lua vim.lsp.buf.definition()<CR>") -- goto definition
+map("n", "K", ":lua vim.lsp.buf.hover()<CR>") -- goto definition
 
 map("n", "<C-p>", ":MarkdownPreviewToggle<CR>") -- Markdown preview
 map("n", "L", ":BufferLineCycleNext<CR>") -- Buffer previous
