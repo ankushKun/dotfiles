@@ -1,22 +1,24 @@
 #!/bin/bash
 
+dotfiles="~/.dotfiles"
+
 echo " "
 echo "---------------"
 echo "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
 
-cd ~/Developer/dotfiles
+cd $dotfiles
 
-rm -rf ~/Developer/dotfiles/backup/macOS
-mv ~/Developer/dotfiles/macOS ~/Developer/dotfiles/backup/
+rm -rf $dotfiles/backup/macOS
+mv $dotfiles/macOS $dotfiles/backup/
 
-rm -rf ~/Developer/dotfiles/macOS
-mkdir ~/Developer/dotfiles/macOS
+rm -rf $dotfiles/macOS
+mkdir $dotfiles/macOS
 
-cp -r ~/.config/nvim ~/Developer/dotfiles/macOS/
-cp -r ~/.config/alacritty ~/Developer/dotfiles/macOS/
-cp -r ~/.zshrc ~/Developer/dotfiles/macOS/zshrc
-cp -r ~/.tmux.conf ~/Developer/dotfiles/macOS/tmux.conf
-cp -r ~/.p10k.zsh ~/Developer/dotfiles/macOS/p10k.zsh
+cp -r ~/.config/nvim $dotfiles/macOS/
+cp -r ~/.config/alacritty $dotfiles/macOS/
+cp -r ~/.zshrc $dotfiles/macOS/zshrc
+cp -r ~/.tmux.conf $dotfiles/macOS/tmux.conf
+cp -r ~/.p10k.zsh $dotfiles/macOS/p10k.zsh
 
 git add .
 git commit -m "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
