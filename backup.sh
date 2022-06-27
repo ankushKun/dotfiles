@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dotfiles="~/.dotfiles"
+export dotfiles="~/.dotfiles"
 
 echo " "
 echo "---------------"
