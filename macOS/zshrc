@@ -120,17 +120,21 @@ alias nv=neovide\ --multigrid\ --frame\ none
 
 alias dev="cd /Volumes/500GB/Developer"
 
-export PATH="/Users/ankush/Library/Python/3.8/bin:$PATH"
-export PATH="$PATH:/Users/ankush/.spicetify"
+# export PATH="/Users/ankush/Library/Python/3.8/bin:$PATH"
+# export PATH="$PATH:/Users/ankush/.spicetify"
 
-if [ -d "/usr/local/opt/ruby/bin" ]; then
-  export PATH=/usr/local/opt/ruby/bin:$PATH
-  export PATH=`gem environment gemdir`/bin:$PATH
-fi
+# if [ -d "/usr/local/opt/ruby/bin" ]; then
+  # export PATH=/usr/local/opt/ruby/bin:$PATH
+  # export PATH=`gem environment gemdir`/bin:$PATH
+# fi
 
 export ANDROID_SDK_ROOT=/Volumes/1TB/Applications-Ext/AndroidStudio/Android/sdk
-export PATH="$ANDROID_SDK_ROOT/platform-tools:$PATH"
-export PATH="$ANDROID_SDK_ROOT/emulator:$PATH"
+# export PATH="$ANDROID_SDK_ROOT/platform-tools:$PATH"
+# export PATH="$ANDROID_SDK_ROOT/emulator:$PATH"
 
 export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion

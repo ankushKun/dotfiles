@@ -26,7 +26,7 @@ vim.opt.smartcase = true
 vim.opt.smartindent = true
 vim.opt.smarttab = true
 vim.opt.clipboard = "unnamedplus"
-vim.opt.guifont = "MesloLGS NF:h15"
+vim.opt.guifont = "MesloLGS NF:h14"
 
 vim.opt.fillchars = [[eob: ,fold: ,foldopen:v,foldsep: ,foldclose:>]]
 
@@ -80,7 +80,6 @@ require('packer').startup(function()
     use 'hrsh7th/vim-vsnip'
     use 'wakatime/vim-wakatime'
     use { "akinsho/toggleterm.nvim", tag = 'v1.*' }
-    use { 'iamcco/markdown-preview.nvim', run = 'cd app && npm install' }
     use 'seandewar/killersheep.nvim'
     use 'alec-gibson/nvim-tetris'
     use 'mg979/vim-visual-multi'
@@ -224,7 +223,8 @@ lspconfig.cssls.setup { capabilities = capabilities }
 local nls = require('null-ls')
 nls.setup {
     sources = {
-        nls.builtins.formatting.black
+        nls.builtins.formatting.black,
+        nls.builtins.formatting.prettierd
     }
 }
 
@@ -367,6 +367,7 @@ dashboard.section.buttons.val = {
     dashboard.button("s", " Config", ":Config<CR>"),
     dashboard.button("q", " Quit NVIM", ":qa<CR>"),
 }
+dashboard.section.buttons.opts.hl = "Special"
 
 alpha.setup(dashboard.opts)
 
