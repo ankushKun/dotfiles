@@ -20,6 +20,7 @@ echo "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
 /bin/cp -r "$prefix/.zshrc" "$dotfiles/macOS/zshrc"
 /bin/cp -r "$prefix/.tmux.conf" "$dotfiles/macOS/tmux.conf"
 /bin/cp -r "$prefix/.p10k.zsh" "$dotfiles/macOS/p10k.zsh"
+/bin/cp -r "$prefix/.config/mpv" "$dotfiles/macOS/mpv"
 
 git add .
 git commit -m "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
