@@ -9,8 +9,8 @@ echo "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
 
 /bin/cd "$dotfiles"
 
-/bin/rm -rf "$dotfiles/backup/macOS"
-/bin/mv "$dotfiles/macOS" "$dotfiles/backup"
+/bin/rm -rf "$dotfiles/old/macOS"
+/bin/mv "$dotfiles/macOS" "$dotfiles/old"
 
 /bin/rm -rf "$dotfiles/macOS"
 /bin/mkdir "$dotfiles/macOS"
