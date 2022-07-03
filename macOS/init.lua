@@ -207,13 +207,13 @@ lspconfig.sumneko_lua.setup {
 lspconfig.pyright.setup {
     capabilities = capabilities
 }
-lspconfig.omnisharp.setup {
-    cmd = { "mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe",
-        "--languageserver", "--hostPID", tostring(vim.fn.getpid()) },
-    root_dir = lspconfig.util.root_pattern("*.sln");
-    capabilities = capabilities,
-    use_mono = true
-}
+-- lspconfig.omnisharp.setup {
+--     cmd = { "mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe",
+--         "--languageserver", "--hostPID", tostring(vim.fn.getpid()) },
+--     root_dir = lspconfig.util.root_pattern("*.sln");
+--     capabilities = capabilities,
+--     use_mono = true
+-- }
 lspconfig.tsserver.setup { capabilities = capabilities }
 lspconfig.tailwindcss.setup { capabilities = capabilities }
 lspconfig.yamlls.setup { capabilities = capabilities }
