@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export prefix="/Users/ankush"
+export prefix="/Users/ankushsingh"
 export dotfiles="$prefix/.dotfiles"
 
 echo " "
