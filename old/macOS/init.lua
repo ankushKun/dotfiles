@@ -220,6 +220,7 @@ lspconfig.tailwindcss.setup { capabilities = capabilities }
 lspconfig.yamlls.setup { capabilities = capabilities }
 lspconfig.html.setup { capabilities = capabilities }
 lspconfig.cssls.setup { capabilities = capabilities }
+lspconfig.svelte.setup { capabilities = capabilities }
 
 local nls = require('null-ls')
 nls.setup {
