@@ -17,7 +17,7 @@ echo "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
 
 /bin/cp -r "$prefix/.config/nvim/init.lua" "$dotfiles/macOS/init.lua"
 /bin/cp -r "$prefix/.config/alacritty/alacritty.yml" "$dotfiles/macOS/alacritty.yml"
-/bin/cp -r "$prefix/.conf/kitty/kitty.conf" "$dotfiles/macOS/kitty.conf"
+/bin/cp -r "$prefix/.config/kitty/kitty.conf" "$dotfiles/macOS/kitty.conf"
 /bin/cp -r "$prefix/.zshrc" "$dotfiles/macOS/zshrc"
 /bin/cp -r "$prefix/.tmux.conf" "$dotfiles/macOS/tmux.conf"
 /bin/cp -r "$prefix/.p10k.zsh" "$dotfiles/macOS/p10k.zsh"
