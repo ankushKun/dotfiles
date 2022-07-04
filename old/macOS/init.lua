@@ -87,6 +87,7 @@ require('packer').startup(function()
     -- use 'OmniSharp/omnisharp-vim'
     use 'tpope/vim-sleuth'
     use 'tpope/vim-fugitive'
+    use { 'CRAG666/code_runner.nvim', requires = 'nvim-lua/plenary.nvim' }
 end)
 
 
@@ -400,6 +401,18 @@ vim.g.mkdp_echo_preview_url = 1
 require("toggleterm").setup()
 
 --------------------------------------------------------------------
+--                      CODE RUNNER                               --
+--------------------------------------------------------------------
+require('code_runner').setup({
+    -- put here the commands by filetype
+    filetype = {
+        java = "cd $dir && javac $fileName && java $fileNameWithoutExt",
+        python = "python3 -u",
+        cpp = "cd $dir; g++ $fileName -o $fileNameWithoutExt; ./$fileNameWithoutExt"
+    },
+})
+
+--------------------------------------------------------------------
 --                       OMNISHARP                                --
 --------------------------------------------------------------------
 -- maps Tab to <C-x><C-o> for autocompletion using Omnisharp,
@@ -433,14 +446,16 @@ map("n", "<Leader>th", ":ToggleTerm<CR>") -- Open horizontal terminal
 map("t", "<Esc>", [[<C-\><C-n>:ToggleTerm<CR>]]) -- Close terminal
 map("n", "<Leader>h", ":noh<CR>") -- No highlight
 
-map("n", "gd", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- code diagnostics
 map("n", "<Leader>lf", ":lua vim.lsp.buf.formatting()<CR>") -- format code
+map("n", "gd", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- line diagnostics
 map("n", "gD", ":lua vim.lsp.buf.definition()<CR>") -- goto definition
-map("n", "K", ":lua vim.lsp.buf.hover()<CR>") -- goto definition
+map("n", "K", ":lua vim.lsp.buf.hover()<CR>") -- hover
 
-map("n", "<C-p>", ":MarkdownPreviewToggle<CR>") -- Markdown preview
+-- map("n", "<C-p>", ":MarkdownPreviewToggle<CR>") -- Markdown preview
 map("n", "L", ":BufferLineCycleNext<CR>") -- Buffer previous
 map("n", "H", ":BufferLineCyclePrev<CR>") -- buffer next
 
-map("n", "fo",":foldopen<CR>")
-map("n", "fc",":foldclose<CR>")
+map("n", "fo", ":foldopen<CR>") -- foldopen
+map("n", "fc", ":foldclose<CR>") -- foldclose
+
+map("n","<Leader>r",":RunCode<CR>") -- run code

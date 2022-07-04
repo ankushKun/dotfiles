@@ -205,12 +205,6 @@ lspconfig.sumneko_lua.setup {
         }
     }
 }
-lspconfig.pyright.setup {
-    capabilities = capabilities
-}
-lspconfig.clangd.setup {
-    capabilities = capabilities
-}
 -- lspconfig.omnisharp.setup {
 --     cmd = { "mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe",
 --         "--languageserver", "--hostPID", tostring(vim.fn.getpid()) },
@@ -218,6 +212,9 @@ lspconfig.clangd.setup {
 --     capabilities = capabilities,
 --     use_mono = true
 -- }
+lspconfig.pyright.setup { capabilities = capabilities }
+lspconfig.clangd.setup { capabilities = capabilities }
+lspconfig.jdtls.setup { capabilities = capabilities }
 lspconfig.tsserver.setup { capabilities = capabilities }
 lspconfig.tailwindcss.setup { capabilities = capabilities }
 lspconfig.yamlls.setup { capabilities = capabilities }
@@ -410,6 +407,8 @@ require('code_runner').setup({
         python = "python3 -u",
         cpp = "cd $dir; g++ $fileName -o $fileNameWithoutExt; ./$fileNameWithoutExt"
     },
+    -- mode = "toggleterm",
+    focus = false
 })
 
 --------------------------------------------------------------------
@@ -458,4 +457,4 @@ map("n", "H", ":BufferLineCyclePrev<CR>") -- buffer next
 map("n", "fo", ":foldopen<CR>") -- foldopen
 map("n", "fc", ":foldclose<CR>") -- foldclose
 
-map("n","<Leader>r",":RunCode<CR>") -- run code
+map("n", "<Leader>r", ":RunCode<CR>") -- run code
