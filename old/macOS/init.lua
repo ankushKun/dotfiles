@@ -214,7 +214,7 @@ lspconfig.sumneko_lua.setup {
 -- }
 lspconfig.pyright.setup { capabilities = capabilities }
 lspconfig.clangd.setup { capabilities = capabilities }
-lspconfig.jdtls.setup { capabilities = capabilities }
+lspconfig.jdtls.setup { capabilities = capabilities, root_dir = function() vim.fn.getcwd() end }
 lspconfig.tsserver.setup { capabilities = capabilities }
 lspconfig.tailwindcss.setup { capabilities = capabilities }
 lspconfig.yamlls.setup { capabilities = capabilities }
