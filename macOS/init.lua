@@ -442,5 +442,5 @@ map("n", "<C-p>", ":MarkdownPreviewToggle<CR>") -- Markdown preview
 map("n", "L", ":BufferLineCycleNext<CR>") -- Buffer previous
 map("n", "H", ":BufferLineCyclePrev<CR>") -- buffer next
 
-map("n", "<Leader>fo",":foldopen<CR>")
-map("n", "<Leader>fc",":foldclose<CR>")
+map("n", "fo",":foldopen<CR>")
+map("n", "fc",":foldclose<CR>")
