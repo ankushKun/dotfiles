@@ -7,21 +7,21 @@ echo " "
 echo "---------------"
 echo "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
 
-/bin/cd "$dotfiles"
+cd "$dotfiles"
 
-/bin/rm -rf "$dotfiles/old/macOS"
-/bin/mv "$dotfiles/macOS" "$dotfiles/old"
+rm -rf "$dotfiles/old/macOS"
+mv "$dotfiles/macOS" "$dotfiles/old"
 
-/bin/rm -rf "$dotfiles/macOS"
-/bin/mkdir "$dotfiles/macOS"
+rm -rf "$dotfiles/macOS"
+mkdir "$dotfiles/macOS"
 
-/bin/cp -r "$prefix/.config/nvim/init.lua" "$dotfiles/macOS/init.lua"
-/bin/cp -r "$prefix/.config/alacritty/alacritty.yml" "$dotfiles/macOS/alacritty.yml"
-/bin/cp -r "$prefix/.config/kitty/kitty.conf" "$dotfiles/macOS/kitty.conf"
-/bin/cp -r "$prefix/.zshrc" "$dotfiles/macOS/zshrc"
-/bin/cp -r "$prefix/.tmux.conf" "$dotfiles/macOS/tmux.conf"
-/bin/cp -r "$prefix/.p10k.zsh" "$dotfiles/macOS/p10k.zsh"
-/bin/cp -r "$prefix/.config/mpv" "$dotfiles/macOS/mpv"
+cp -r "$prefix/.config/nvim/init.lua" "$dotfiles/macOS/init.lua"
+cp -r "$prefix/.config/alacritty/alacritty.yml" "$dotfiles/macOS/alacritty.yml"
+cp -r "$prefix/.config/kitty/kitty.conf" "$dotfiles/macOS/kitty.conf"
+cp -r "$prefix/.zshrc" "$dotfiles/macOS/zshrc"
+cp -r "$prefix/.tmux.conf" "$dotfiles/macOS/tmux.conf"
+cp -r "$prefix/.p10k.zsh" "$dotfiles/macOS/p10k.zsh"
+cp -r "$prefix/.config/mpv" "$dotfiles/macOS/mpv"
 
 git add .
 git commit -m "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
