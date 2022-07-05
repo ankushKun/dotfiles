@@ -80,14 +80,15 @@ require('packer').startup(function()
     use 'hrsh7th/vim-vsnip'
     use 'wakatime/vim-wakatime'
     use { "akinsho/toggleterm.nvim", tag = 'v1.*' }
-    use 'seandewar/killersheep.nvim'
-    use 'alec-gibson/nvim-tetris'
-    use 'mg979/vim-visual-multi'
-    use 'windwp/nvim-autopairs'
+    use "seandewar/killersheep.nvim"
+    use "alec-gibson/nvim-tetris"
+    use "mg979/vim-visual-multi"
+    use "windwp/nvim-autopairs"
     -- use 'OmniSharp/omnisharp-vim'
-    use 'tpope/vim-sleuth'
-    use 'tpope/vim-fugitive'
-    use { 'CRAG666/code_runner.nvim', requires = 'nvim-lua/plenary.nvim' }
+    use "tpope/vim-sleuth"
+    use "tpope/vim-fugitive"
+    use { "CRAG666/code_runner.nvim", requires = "nvim-lua/plenary.nvim" }
+    use "dominikduda/vim_current_word"
 end)
 
 
