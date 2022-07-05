@@ -300,7 +300,8 @@ require('nvim-tree').setup {
         indent_markers = {
             enable = true,
             icons = {
-                corner = "└ ",
+                -- corner = "└ ",
+                corner = "╰ ",
                 edge = "│ ",
                 item = "│ ",
                 none = "  "
