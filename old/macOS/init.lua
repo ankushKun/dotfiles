@@ -380,9 +380,9 @@ vim.cmd([[autocmd FileType alpha setlocal nofoldenable]])
 --------------------------------------------------------------------
 --                      MARKDOWN PREVIEW                          --
 --------------------------------------------------------------------
-vim.g.mkdp_command_for_global = 1
-vim.g.mkdp_auto_close = 0
-vim.g.mkdp_echo_preview_url = 1
+-- vim.g.mkdp_command_for_global = 1
+-- vim.g.mkdp_auto_close = 0
+-- vim.g.mkdp_echo_preview_url = 1
 
 --------------------------------------------------------------------
 --                      GITHUB COPILOT                            --
@@ -410,7 +410,7 @@ require('code_runner').setup({
         cpp = "cd $dir; g++ $fileName -o $fileNameWithoutExt; ./$fileNameWithoutExt"
     },
     -- mode = "toggleterm",
-    focus = false
+    -- focus = false
 })
 
 --------------------------------------------------------------------
