@@ -300,8 +300,8 @@ require('nvim-tree').setup {
         indent_markers = {
             enable = true,
             icons = {
-                -- corner = "└ ",
-                corner = "╰ ",
+                corner = "└ ",
+                -- corner = "╰ ",
                 edge = "│ ",
                 item = "│ ",
                 none = "  "
@@ -398,7 +398,11 @@ vim.cmd([[autocmd FileType alpha setlocal nofoldenable]])
 --------------------------------------------------------------------
 --                        TOGGLETERM                              --
 --------------------------------------------------------------------
-require("toggleterm").setup()
+require("toggleterm").setup{
+    float_opts = {
+        -- border = "curved"
+    }
+}
 
 --------------------------------------------------------------------
 --                      CODE RUNNER                               --
