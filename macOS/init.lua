@@ -412,7 +412,8 @@ require('code_runner').setup({
     filetype = {
         java = "cd $dir && javac $fileName && java $fileNameWithoutExt",
         python = "python3 -u",
-        cpp = "cd $dir; g++ $fileName -o $fileNameWithoutExt; ./$fileNameWithoutExt"
+        cpp = "cd $dir; g++ $fileName -o $fileNameWithoutExt; ./$fileNameWithoutExt",
+        javascript = "node"
     },
     -- mode = "toggleterm",
     -- focus = false
