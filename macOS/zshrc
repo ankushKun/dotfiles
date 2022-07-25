@@ -117,9 +117,7 @@ export EDITOR=nvim
 
 alias v=nvim
 alias nv=neovide\ --multigrid\ --frame\ none
-
-alias dev="cd /Volumes/500GB/Developer"
-
+alias ssh="kitty +kitten ssh"
 
 # if [ -d "/usr/local/opt/ruby/bin" ]; then
   # export PATH=/usr/local/opt/ruby/bin:$PATH
@@ -140,3 +138,4 @@ export PATH="/Users/ankushsingh/.local/share/ani-cli/bin:$PATH"
 # export JAVA_HOME="/usr/local/opt/openjdk@17"
 export PATH="/usr/local/Cellar/openjdk/18.0.1.1/bin:$PATH"
 export JAVA_HOME="/usr/local/Cellar/openjdk/18.0.1.1"
+export PATH=$PATH:/Users/ankush/.spicetify

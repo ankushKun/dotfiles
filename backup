@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export prefix="/Users/ankushsingh"
+export prefix="/Users/ankush"
 export dotfiles="$prefix/.dotfiles"
 
 echo " "
@@ -9,19 +9,19 @@ echo "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
 
 cd "$dotfiles"
 
-rm -rf "$dotfiles/old/macOS"
-mv "$dotfiles/macOS" "$dotfiles/old"
+# rm -rf "$dotfiles/old/macOS"
+# mv "$dotfiles/macOS" "$dotfiles/old"
 
-rm -rf "$dotfiles/macOS"
-mkdir "$dotfiles/macOS"
+# rm -rf "$dotfiles/macOS"
+# mkdir "$dotfiles/macOS"
 
-cp -r "$prefix/.config/nvim/init.lua" "$dotfiles/macOS/init.lua"
-cp -r "$prefix/.config/alacritty/alacritty.yml" "$dotfiles/macOS/alacritty.yml"
-cp -r "$prefix/.config/kitty/kitty.conf" "$dotfiles/macOS/kitty.conf"
-cp -r "$prefix/.zshrc" "$dotfiles/macOS/zshrc"
-cp -r "$prefix/.tmux.conf" "$dotfiles/macOS/tmux.conf"
-cp -r "$prefix/.p10k.zsh" "$dotfiles/macOS/p10k.zsh"
-cp -r "$prefix/.config/mpv" "$dotfiles/macOS/mpv"
+rsync -a -vh "$prefix/.config/nvim/init.lua" "$dotfiles/macOS/init.lua"
+rsync -a -vh "$prefix/.config/alacritty/alacritty.yml" "$dotfiles/macOS/alacritty.yml"
+rsync -a -vh "$prefix/.config/kitty/kitty.conf" "$dotfiles/macOS/kitty.conf"
+rsync -a -vh "$prefix/.zshrc" "$dotfiles/macOS/zshrc"
+rsync -a -vh "$prefix/.tmux.conf" "$dotfiles/macOS/tmux.conf"
+rsync -a -vh "$prefix/.p10k.zsh" "$dotfiles/macOS/p10k.zsh"
+rsync -a -vh "$prefix/.config/mpv" "$dotfiles/macOS"
 
 git add .
 git commit -m "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
