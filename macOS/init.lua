@@ -466,3 +466,4 @@ map("n", "fo", ":foldopen<CR>") -- foldopen
 map("n", "fc", ":foldclose<CR>") -- foldclose
 
 map("n", "<Leader>r", ":RunCode<CR>") -- run code
+
