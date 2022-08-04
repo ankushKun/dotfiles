@@ -265,6 +265,20 @@ local config = {
       pattern = "plugins.lua",
       command = "source <afile> | PackerSync",
     })
+
+    -- local alpha = require "alpha"
+    -- local dashboard = require "alpha.themes.dashboard"
+    --
+    -- -- Set header
+    -- dashboard.section.header.val = {
+    --   [[     /\_____/\     ]],
+    --   [[    /  o   o  \    ]],
+    --   [[   ( ==  ^  == )   ]],
+    --   [[    )         (    ]],
+    --   [[   (           )   ]],
+    --   [[  ( (  )   (  ) )  ]],
+    --   [[ (__(__)___(__)__) ]],
+    -- }
   end,
 }
 
