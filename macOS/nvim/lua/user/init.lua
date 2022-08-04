@@ -203,8 +203,13 @@ local config = {
     -- Add overrides for LSP server settings, the keys are the name of the server
     ["server-settings"] = {
       omnisharp = {
-        cmd = { "mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe" },
-        use_mono = true,
+        cmd = {
+          "mono",
+          "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe",
+          "--languageserver",
+          "--hostPID",
+          tostring(vim.fn.getpid()),
+        },
       },
       -- example for addings schemas to yamlls
       -- yamlls = {
