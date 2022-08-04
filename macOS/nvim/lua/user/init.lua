@@ -16,7 +16,15 @@ local config = {
     --   ["remote3"] = "github_user", -- GitHub user assume AstroNvim fork
     -- },
   },
-
+  header = {
+    [[     /\_____/\     ]],
+    [[    /  o   o  \    ]],
+    [[   ( ==  ^  == )   ]],
+    [[    )         (    ]],
+    [[   (           )   ]],
+    [[  ( (  )   (  ) )  ]],
+    [[ (__(__)___(__)__) ]],
+  },
   -- Set colorscheme
   colorscheme = "tokyonight",
 
@@ -175,6 +183,7 @@ local config = {
       "tsserver",
       "cssls",
       "html",
+      "omnisharp",
     },
     -- easily add or disable built in mappings added during LSP attaching
     mappings = {
@@ -193,6 +202,10 @@ local config = {
 
     -- Add overrides for LSP server settings, the keys are the name of the server
     ["server-settings"] = {
+      omnisharp = {
+        cmd = { "mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe" },
+        use_mono = true,
+      },
       -- example for addings schemas to yamlls
       -- yamlls = {
       --   settings = {
@@ -265,20 +278,6 @@ local config = {
       pattern = "plugins.lua",
       command = "source <afile> | PackerSync",
     })
-
-    -- local alpha = require "alpha"
-    -- local dashboard = require "alpha.themes.dashboard"
-    --
-    -- -- Set header
-    -- dashboard.section.header.val = {
-    --   [[     /\_____/\     ]],
-    --   [[    /  o   o  \    ]],
-    --   [[   ( ==  ^  == )   ]],
-    --   [[    )         (    ]],
-    --   [[   (           )   ]],
-    --   [[  ( (  )   (  ) )  ]],
-    --   [[ (__(__)___(__)__) ]],
-    -- }
   end,
 }
 
