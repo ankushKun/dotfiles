@@ -1195,7 +1195,7 @@
 	<key>TabStyleWithAutomaticOption</key>
 	<integer>5</integer>
 	<key>TerminalMargin</key>
-	<integer>4</integer>
+	<integer>1</integer>
 	<key>TerminalVMargin</key>
 	<integer>0</integer>
 	<key>UseBorder</key>
