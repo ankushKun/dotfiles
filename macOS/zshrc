@@ -117,7 +117,7 @@ export EDITOR=nvim
 
 alias v=nvim
 alias nv=neovide\ --multigrid\ --frame\ none
-alias ssh="kitty +kitten ssh"
+alias sshk="kitty +kitten ssh"
 
 # if [ -d "/usr/local/opt/ruby/bin" ]; then
   # export PATH=/usr/local/opt/ruby/bin:$PATH

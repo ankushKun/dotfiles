@@ -1115,6 +1115,8 @@
 			<integer>3</integer>
 			<key>Transparency</key>
 			<real>0.15493228993517294</real>
+			<key>Unicode Version</key>
+			<integer>9</integer>
 			<key>Unlimited Scrollback</key>
 			<false/>
 			<key>Use Bold Font</key>
