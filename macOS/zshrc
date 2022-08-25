@@ -134,11 +134,7 @@ export PATH="/usr/local/sbin:$PATH"
 export PATH="/usr/local/bin:$PATH"
 export PATH="/Users/ankushsingh/.local/share/ani-cli/bin:$PATH"
 
-# export PATH="/usr/local/opt/openjdk@17/bin:$PATH"
-# export JAVA_HOME="/usr/local/opt/openjdk@17"
-export PATH="/usr/local/Cellar/openjdk/18.0.1.1/bin:$PATH"
-export JAVA_HOME="/usr/local/Cellar/openjdk/18.0.1.1"
-export PATH=$PATH:/Users/ankush/.spicetify
-
 test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
 
+export PATH="/usr/local/opt/openjdk/bin:$PATH"
+export CPPFLAGS="-I/usr/local/opt/openjdk/include"

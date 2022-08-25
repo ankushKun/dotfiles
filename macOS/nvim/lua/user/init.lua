@@ -102,6 +102,19 @@ local config = {
       -- You can also add new plugins here as well:
       { "andweeb/presence.nvim" },
       { "folke/tokyonight.nvim" },
+      {
+        "CRAG666/code_runner.nvim",
+        config = function()
+          require("code_runner").setup {
+            filetype = {
+              java = "cd $dir && javac $fileName && java $fileNameWithoutExt",
+              python = "python3 -u",
+              javascript = "node",
+              rust = "cd $dir && rustc $fileName && $dir/$fileNameWithoutExt",
+            },
+          }
+        end,
+      },
       -- {
       --   "ray-x/lsp_signature.nvim",
       --   event = "BufRead",
@@ -184,6 +197,7 @@ local config = {
       "cssls",
       "html",
       "omnisharp",
+      "jdtls",
     },
     -- easily add or disable built in mappings added during LSP attaching
     mappings = {
