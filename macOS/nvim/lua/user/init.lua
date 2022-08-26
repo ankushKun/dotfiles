@@ -115,6 +115,21 @@ local config = {
           }
         end,
       },
+      {
+        "nvim-neo-tree/neo-tree.nvim",
+        config = function()
+          require("neo-tree").setup {
+            filesystem = {
+              filtered_items = {
+                visible = false,
+                hide_by_pattern = {
+                  "*.class",
+                },
+              },
+            },
+          }
+        end,
+      },
       -- {
       --   "ray-x/lsp_signature.nvim",
       --   event = "BufRead",
