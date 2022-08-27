@@ -213,6 +213,7 @@ local config = {
       "html",
       "omnisharp",
       "jdtls",
+      "tailwindcss",
     },
     -- easily add or disable built in mappings added during LSP attaching
     mappings = {
