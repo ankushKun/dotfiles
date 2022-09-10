@@ -210,6 +210,7 @@ local config = {
       "pyright",
       "tsserver",
       "cssls",
+      "clangd",
       "html",
       "omnisharp",
       "jdtls",
