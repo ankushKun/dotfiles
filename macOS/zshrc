@@ -141,3 +141,4 @@ export CPPFLAGS="-I/usr/local/opt/openjdk/include"
 
 export PATH="/opt/metasploit-framework/bin:$PATH"
 export MONO_GAC_PREFIX="/usr/local"
+export PATH=$PATH:/Users/ankush/.spicetify
