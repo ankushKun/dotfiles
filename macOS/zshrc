@@ -116,6 +116,7 @@ export EDITOR=nvim
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 alias v=nvim
+alias sv=sudo\ nvim
 alias nv=neovide\ --multigrid\ --frame\ none
 alias sshk="kitty +kitten ssh"
 

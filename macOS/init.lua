@@ -28,6 +28,7 @@ vim.opt.smarttab = true
 vim.opt.clipboard = "unnamedplus"
 vim.opt.guifont = "MesloLGS NF:h14"
 vim.opt.fillchars = [[eob: ,fold: ,foldopen:v,foldsep: ,foldclose:>]]
+vim.opt.background = "dark"
 
 -- Neovide options
 if (vim.fn.exists('neovide') == 1) then
@@ -36,11 +37,11 @@ if (vim.fn.exists('neovide') == 1) then
 end
 
 -- Fix pasting emojis
-vim.cmd("let $LANG='en_US.UTF-8'")
+vim.cmd("let $LANG=\"en_US.UTF-8\"")
 
 
 -- custom command to open config
-vim.cmd(':command! Config e ~/.config/nvim/init.lua')
+vim.cmd(":command! Config e ~/.config/nvim/init.lua")
 
 --------------------------------------------------------------------
 --                            PLUGINS                             --
@@ -90,6 +91,7 @@ require('packer').startup(function()
     use "dominikduda/vim_current_word"
     use "karb94/neoscroll.nvim"
     use { 'kevinhwang91/nvim-ufo', requires = 'kevinhwang91/promise-async' }
+    use { 'nyoom-engineering/oxocarbon.nvim' }
 end)
 
 
@@ -189,7 +191,7 @@ cmp.setup.cmdline(':', {
 --                           LSP                                  --
 --------------------------------------------------------------------
 require('nvim-lsp-installer').setup {
-    automatic_installation = true
+    automatic_installation = false
 }
 
 local lspconfig = require("lspconfig")
@@ -207,22 +209,23 @@ lspconfig.sumneko_lua.setup {
         }
     }
 }
-lspconfig.omnisharp.setup {
-    cmd = { "mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe",
-        "--languageserver", "--hostPID", tostring(vim.fn.getpid()) },
-    root_dir = lspconfig.util.root_pattern("*.sln");
-    capabilities = capabilities,
-    use_mono = true
-}
+
+-- lspconfig.omnisharp.setup {
+--    cmd = { "mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe",
+--        "--languageserver", "--hostPID", tostring(vim.fn.getpid()) },
+--    root_dir = lspconfig.util.root_pattern("*.sln");
+--    capabilities = capabilities,
+--    use_mono = true
+--}
 lspconfig.pyright.setup { capabilities = capabilities }
 lspconfig.clangd.setup { capabilities = capabilities }
-lspconfig.jdtls.setup { capabilities = capabilities } -- minimum java17
+-- lspconfig.jdtls.setup { capabilities = capabilities } -- minimum java17
 lspconfig.tsserver.setup { capabilities = capabilities }
 lspconfig.tailwindcss.setup { capabilities = capabilities }
-lspconfig.yamlls.setup { capabilities = capabilities }
+-- lspconfig.yamlls.setup { capabilities = capabilities }
 lspconfig.html.setup { capabilities = capabilities }
 lspconfig.cssls.setup { capabilities = capabilities }
-lspconfig.svelte.setup { capabilities = capabilities }
+-- lspconfig.svelte.setup { capabilities = capabilities }
 
 local nls = require('null-ls')
 nls.setup {
@@ -476,7 +479,7 @@ map("n", "<Leader>th", ":ToggleTerm<CR>") -- Open horizontal terminal
 map("t", "<Esc>", [[<C-\><C-n>:ToggleTerm<CR>]]) -- Close terminal
 map("n", "<Leader>h", ":noh<CR>") -- No highlight
 
-map("n", "<Leader>lf", ":lua vim.lsp.buf.formatting()<CR>") -- format code
+map("n", "<Leader>lf", ":lua vim.lsp.buf.format(async=true)<CR>") -- format code
 map("n", "gd", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- line diagnostics
 map("n", "gD", ":lua vim.lsp.buf.definition()<CR>") -- goto definition
 map("n", "K", ":lua vim.lsp.buf.hover()<CR>") -- hover
