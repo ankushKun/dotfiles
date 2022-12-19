@@ -37,7 +37,7 @@ map("t", "<Esc>", [[<C-\><C-n>:ToggleTerm<CR>]]) -- Close terminal
 
 map("n", "<Leader>h", ":noh<CR>") -- No highlight
 
-map("n", "<Leader>lf", ":lua vim.lsp.buf.formatting()<CR>") -- format code
+map("n", "<Leader>lf", ":lua vim.lsp.buf.format{async=true}<CR>") -- format code
 
 map("n", "gd", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- line diagnostics
 

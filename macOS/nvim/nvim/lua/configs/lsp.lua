@@ -2,56 +2,23 @@
 --                           LSP                                  --
 --------------------------------------------------------------------
 
-require('nvim-lsp-installer').setup {
-    automatic_installation = false
-}
-
 require("mason").setup({
     ensure_installed = { "sumneko_lua", "tsserver", "pyright" },
-    automatic_installation = false
+    automatic_installation = true
 })
+
 require("mason-lspconfig").setup()
 
-require("lspconfig").sumneko_lua.setup {}
-require("lspconfig").omnisharp_mono.setup {}
-
---local lspconfig = require("lspconfig")
---local capabilities = require('cmp_nvim_lsp').default_capabilities(vim.lsp.protocol.make_client_capabilities())
----- capabilities = require('cmp_nvim_lsp').update_capabilities(capabilities)
-
---lspconfig.sumneko_lua.setup {
---    capabilities = capabilities,
---    settings = {
---        Lua = {
---            diagnostics = {
---                globals = { "vim", "use" },
---                disable = { "lowercase-global" }
---            }
---        }
---    }
---}
-
----- lspconfig.omnisharp.setup {
-----    cmd = { "mono", "/Users/ankush/.local/share/nvim/lsp_servers/omnisharp/omnisharp-mono/OmniSharp.exe",
-----        "--languageserver", "--hostPID", tostring(vim.fn.getpid()) },
-----    root_dir = lspconfig.util.root_pattern("*.sln");
-----    capabilities = capabilities,
-----    use_mono = true
-----}
---lspconfig.pyright.setup { capabilities = capabilities }
---lspconfig.clangd.setup { capabilities = capabilities }
----- lspconfig.jdtls.setup { capabilities = capabilities } -- minimum java17
---lspconfig.tsserver.setup { capabilities = capabilities }
---lspconfig.tailwindcss.setup { capabilities = capabilities }
----- lspconfig.yamlls.setup { capabilities = capabilities }
---lspconfig.html.setup { capabilities = capabilities }
---lspconfig.cssls.setup { capabilities = capabilities }
----- lspconfig.svelte.setup { capabilities = capabilities }
-
---local nls = require('null-ls')
---nls.setup {
---    sources = {
---        nls.builtins.formatting.black,
---        -- nls.builtins.formatting.prettierd
---    }
---}
+require("mason-lspconfig").setup_handlers{
+    -- The first entry (without a key) will be the default handler
+    -- and will be called for each installed server that doesn't have
+    -- a dedicated handler.
+    function(server_name) -- default handler (optional)
+        require("lspconfig")[server_name].setup {}
+    end,
+    -- Next, you can provide a dedicated handler for specific servers.
+    -- For example, a handler override for the `rust_analyzer`:
+    -- ["rust_analyzer"] = function()
+    --     require("rust-tools").setup {}
+    -- end
+}
