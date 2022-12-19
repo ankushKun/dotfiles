@@ -10,11 +10,17 @@ require('lualine').setup({
         icons_enabled = true,
     },
     sections = {
-        lualine_a = { 'mode'},
-        lualine_b = { 'branch' },
-        lualine_c = { 'filename' },
-        lualine_x = { 'fileformat', 'filetype' },
-        lualine_y = { 'progress' },
+        lualine_a = { 'mode' },
+        lualine_b = { 'filename' },
+        lualine_c = {},
+        lualine_x = {
+            'fileformat',
+            {
+                'diagnostics', sources = { 'nvim_diagnostic' }, sections = { 'error', 'warn', 'info', 'hint' }
+            }
+        },
+        lualine_y = { 'filetype', 'lsp' },
         lualine_z = { 'location' }
     },
 })
+

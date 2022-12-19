@@ -18,7 +18,16 @@ require("mason-lspconfig").setup_handlers{
     end,
     -- Next, you can provide a dedicated handler for specific servers.
     -- For example, a handler override for the `rust_analyzer`:
-    -- ["rust_analyzer"] = function()
-    --     require("rust-tools").setup {}
-    -- end
+    ["sumneko_lua"] = function()
+        require('lspconfig').sumneko_lua.setup({
+            settings = {
+       Lua = {
+           diagnostics = {
+               globals = { "vim", "use" },
+               disable = { "lowercase-global" }
+           }
+       }
+   }
+        })
+    end
 }
