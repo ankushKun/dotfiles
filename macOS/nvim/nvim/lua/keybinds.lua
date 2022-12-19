@@ -25,6 +25,7 @@ map("n", "<Leader>c", ":bd<CR>")
 
 -- Toggle file explorer
 map("n", "<Leader>e", ":NvimTreeToggle<CR>")
+map("n", "<Leader>o", ":NvimTreeFocus<CR>")
 
 -- Packer Sync
 map("n", "<Leader>ps", ":PackerSync<CR>")
