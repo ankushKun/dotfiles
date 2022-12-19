@@ -6,10 +6,14 @@ require('nvim-lsp-installer').setup {
     automatic_installation = false
 }
 
-require("mason").setup()
+require("mason").setup({
+    ensure_installed = { "sumneko_lua", "tsserver", "pyright" },
+    automatic_installation = false
+})
 require("mason-lspconfig").setup()
 
 require("lspconfig").sumneko_lua.setup {}
+require("lspconfig").omnisharp_mono.setup {}
 
 --local lspconfig = require("lspconfig")
 --local capabilities = require('cmp_nvim_lsp').default_capabilities(vim.lsp.protocol.make_client_capabilities())

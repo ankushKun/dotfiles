@@ -3,6 +3,7 @@
 export prefix="/Users/ankush"
 export dotfiles="$prefix/.dotfiles"
 
+
 echo " "
 echo "---------------"
 echo "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
