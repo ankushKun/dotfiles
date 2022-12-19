@@ -10,6 +10,7 @@ require('packer').startup(function()
 
     -- bottom statusline
     use { 'nvim-lualine/lualine.nvim', requires = 'kyazdani42/nvim-web-devicons' }
+    use 'arkav/lualine-lsp-progress'
 
     -- top tabline
     use 'akinsho/bufferline.nvim'

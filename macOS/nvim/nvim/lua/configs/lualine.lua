@@ -12,7 +12,7 @@ require('lualine').setup({
     sections = {
         lualine_a = { 'mode' },
         lualine_b = { 'filename' },
-        lualine_c = {},
+        lualine_c = { 'branch' },
         lualine_x = {
             'fileformat',
             {
@@ -23,4 +23,3 @@ require('lualine').setup({
         lualine_z = { 'location' }
     },
 })
-

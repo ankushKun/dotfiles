@@ -9,7 +9,7 @@ require("mason").setup({
 
 require("mason-lspconfig").setup()
 
-require("mason-lspconfig").setup_handlers{
+require("mason-lspconfig").setup_handlers {
     -- The first entry (without a key) will be the default handler
     -- and will be called for each installed server that doesn't have
     -- a dedicated handler.
@@ -21,13 +21,13 @@ require("mason-lspconfig").setup_handlers{
     ["sumneko_lua"] = function()
         require('lspconfig').sumneko_lua.setup({
             settings = {
-       Lua = {
-           diagnostics = {
-               globals = { "vim", "use" },
-               disable = { "lowercase-global" }
-           }
-       }
-   }
+                Lua = {
+                    diagnostics = {
+                        globals = { "vim", "use" },
+                        disable = { "lowercase-global" }
+                    }
+                }
+            }
         })
     end
 }
