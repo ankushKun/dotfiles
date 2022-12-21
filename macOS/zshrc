@@ -117,7 +117,8 @@ export EDITOR=nvim
 
 alias v=nvim
 alias sv=sudo\ nvim
-alias nv=neovide\ --multigrid\ --frame\ none
+# alias nv=neovide\ --multigrid\ --frame\ none
+alias nv=/Applications/Neovide.app/Contents/MacOS/neovide\ --multigrid\ --frame\ none
 alias sshk="kitty +kitten ssh"
 
 # if [ -d "/usr/local/opt/ruby/bin" ]; then
@@ -135,7 +136,7 @@ export PATH="/usr/local/sbin:$PATH"
 export PATH="/usr/local/bin:$PATH"
 export PATH="/Users/ankushsingh/.local/share/ani-cli/bin:$PATH"
 
-test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
+# test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
 
 export PATH="/usr/local/opt/openjdk/bin:$PATH"
 export CPPFLAGS="-I/usr/local/opt/openjdk/include"
