@@ -126,6 +126,8 @@ alias sshk="kitty +kitten ssh"
   # export PATH=`gem environment gemdir`/bin:$PATH
 # fi
 
+export HOMEBREW_NO_AUTO_UPDATE=1
+
 export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 
 export NVM_DIR="$HOME/.nvm"
@@ -144,3 +146,4 @@ export CPPFLAGS="-I/usr/local/opt/openjdk/include"
 export PATH="/opt/metasploit-framework/bin:$PATH"
 export MONO_GAC_PREFIX="/usr/local"
 export PATH=$PATH:/Users/ankush/.spicetify
+
