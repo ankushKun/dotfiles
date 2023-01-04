@@ -117,8 +117,7 @@ export EDITOR=nvim
 
 alias v=nvim
 alias sv=sudo\ nvim
-# alias nv=neovide\ --multigrid\ --frame\ none
-alias nv=/Applications/Neovide.app/Contents/MacOS/neovide\ --multigrid\ --frame\ none
+alias nv=/Applications/Neovide.app/Contents/MacOS/neovide\ --multigrid\ --frame none
 alias sshk="kitty +kitten ssh"
 
 # if [ -d "/usr/local/opt/ruby/bin" ]; then
