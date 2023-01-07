@@ -40,8 +40,9 @@ map("n", "<Leader>h", ":noh<CR>") -- No highlight
 
 map("n", "<Leader>lf", ":lua vim.lsp.buf.format{async=true}<CR>") -- format code
 
--- map("n", "gd", ":lua vim.lsp.diagnostic.show_line_diagnostics()<CR>") -- line diagnostics
 map("n", "gd", ":Telescope diagnostics<CR>") -- line diagnostics
+
+map("n", "ge", ":lua vim.diagnostic.open_float()<CR>") -- shoe currnet line diagnostics
 
 map("n", "gD", ":lua vim.lsp.buf.definition()<CR>") -- goto definition
 
