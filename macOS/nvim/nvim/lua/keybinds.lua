@@ -65,4 +65,3 @@ vim.keymap.set('n', 'fC', require('ufo').closeAllFolds) -- close all folds
 
 -- custom command to open config
 vim.cmd(":command! Config e ~/.config/nvim/init.lua")
-
