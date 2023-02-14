@@ -46,13 +46,13 @@ map("n", "ge", ":lua vim.diagnostic.open_float()<CR>") -- shoe currnet line diag
 
 map("n", "gD", ":lua vim.lsp.buf.definition()<CR>") -- goto definition
 
-map("n", "K", ":lua vim.lsp.buf.hover()<CR>") -- hover
+map("n", "<Leader>lh", ":lua vim.lsp.buf.hover()<CR>") -- hover
 
 -- map("n", "<C-p>", ":MarkdownPreviewToggle<CR>") -- Markdown preview
 
-map("n", "L", ":BufferLineCycleNext<CR>") -- Buffer previous
+map("n", "}", ":BufferLineCycleNext<CR>") -- Buffer previous
 
-map("n", "H", ":BufferLineCyclePrev<CR>") -- buffer next
+map("n", "{", ":BufferLineCyclePrev<CR>") -- buffer next
 
 map("n", "fo", ":foldopen<CR>") -- foldopen
 
@@ -62,6 +62,18 @@ map("n", "<Leader>r", ":RunCode<CR>") -- run code
 
 vim.keymap.set('n', 'fO', require('ufo').openAllFolds) -- open all folds
 vim.keymap.set('n', 'fC', require('ufo').closeAllFolds) -- close all folds
+
+-- Indentation
+map("v", "<", "<gv")
+map("n", "<", "v<")
+map("v", ">", ">gv")
+map("n", ">", "v>")
+
+-- Move lines
+map("n", "K", ":<C-u>m-2<CR>==")
+map("n", "J", ":<C-u>m+<CR>==")
+map("v", "K", ":m-2<CR>gv=gv")
+map("v", "J", ":m'>+<CR>gv=gv")
 
 -- custom command to open config
 vim.cmd(":command! Config e ~/.config/nvim/init.lua")

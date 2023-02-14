@@ -34,6 +34,7 @@ require('packer').startup(function()
     use 'jose-elias-alvarez/null-ls.nvim'
     use 'williamboman/mason.nvim'
     use 'williamboman/mason-lspconfig.nvim'
+    use 'jay-babu/mason-null-ls.nvim'
     use 'neovim/nvim-lspconfig'
     use 'glepnir/lspsaga.nvim'
     use 'onsails/lspkind-nvim'

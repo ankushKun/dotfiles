@@ -145,5 +145,5 @@ export CPPFLAGS="-I/usr/local/opt/openjdk/include"
 export PATH="/opt/metasploit-framework/bin:$PATH"
 export MONO_GAC_PREFIX="/usr/local"
 export PATH=$PATH:/Users/ankush/.spicetify
-
-source "$HOME/.cargo/env"
+export PATH="/Users/ankush/.local/share/solana/install/active_release/bin:$PATH"
+# source "$HOME/.cargo/env"

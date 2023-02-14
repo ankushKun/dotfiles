@@ -3,12 +3,11 @@
 --------------------------------------------------------------------
 
 require("mason").setup({
-    ensure_installed = { "sumneko_lua", "tsserver", "pyright" },
+    ensure_installed = {},
     automatic_installation = true
 })
 
 require("mason-lspconfig").setup()
-
 require("mason-lspconfig").setup_handlers {
     -- The first entry (without a key) will be the default handler
     -- and will be called for each installed server that doesn't have
@@ -31,3 +30,15 @@ require("mason-lspconfig").setup_handlers {
         })
     end
 }
+
+require("mason-null-ls").setup({
+    automatic_setup = true,
+})
+
+require("mason-null-ls").setup_handlers {
+    function(source_name, methods)
+        require("mason-null-ls.automatic_setup")(source_name, methods)
+    end
+}
+require("null-ls").setup()
+

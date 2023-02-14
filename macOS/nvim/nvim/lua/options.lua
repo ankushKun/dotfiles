@@ -21,7 +21,7 @@ vim.opt.clipboard = "unnamedplus"
 vim.opt.guifont = "MesloLGS NF:h14"
 vim.opt.fillchars = [[eob: ,fold: ,foldopen:v,foldsep: ,foldclose:>]]
 vim.opt.background = "dark"
--- vim.opt.cursorline = true
+vim.opt.cursorline = true
 
 -- Neovide options
 if (vim.fn.exists('neovide') == 1) then
