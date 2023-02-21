@@ -149,3 +149,4 @@ export PATH="/Users/ankush/.local/share/solana/install/active_release/bin:$PATH"
 export PATH="/Users/ankush/smartpy-cli:$PATH"
 
 # source "$HOME/.cargo/env"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
