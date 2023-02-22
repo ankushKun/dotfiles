@@ -120,9 +120,10 @@ alias sv=sudo\ nvim
 alias nv=neovide\ --multigrid\ --frame\ buttonless
 alias sshk="kitty +kitten ssh"
 
-if [ -d "/usr/local/opt/ruby/bin" ]; then
-  export PATH=/usr/local/opt/ruby/bin:$PATH
-  export PATH=`gem environment gemdir`/bin:$PATH
+if [ -d "/usr/local/Cellar/ruby/3.2.0/bin" ]; then
+  export PATH=/usr/local/Cellar/ruby/3.2.0/bin:$PATH
+  export PATH=/Users/ankush/.gem/ruby/3.2.0/bin:$PATH
+  # export PATH=`gem environment gemdir`/bin:$PATH
 fi
 
 export HOMEBREW_NO_AUTO_UPDATE=1
