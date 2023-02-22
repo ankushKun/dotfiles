@@ -125,8 +125,6 @@ if [ -d "/usr/local/opt/ruby/bin" ]; then
   export PATH=`gem environment gemdir`/bin:$PATH
 fi
 
-source /usr/local/opt/chruby/share/chruby/chruby.sh
-
 export HOMEBREW_NO_AUTO_UPDATE=1
 
 export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
