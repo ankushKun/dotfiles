@@ -140,6 +140,8 @@ export PATH="/Users/ankushsingh/.local/share/ani-cli/bin:$PATH"
 
 # test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
 
+export PATH="$HOME/.cargo/bin:$PATH"
+
 export PATH="/usr/local/opt/openjdk/bin:$PATH"
 export CPPFLAGS="-I/usr/local/opt/openjdk/include"
 
