@@ -224,6 +224,11 @@ _G.packer_plugins = {
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/nvim-web-devicons",
     url = "https://github.com/kyazdani42/nvim-web-devicons"
   },
+  ["onedark.nvim"] = {
+    loaded = true,
+    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/onedark.nvim",
+    url = "https://github.com/navarasu/onedark.nvim"
+  },
   ["packer.nvim"] = {
     loaded = true,
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/packer.nvim",
@@ -253,6 +258,11 @@ _G.packer_plugins = {
     loaded = true,
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/toggleterm.nvim",
     url = "https://github.com/akinsho/toggleterm.nvim"
+  },
+  ["tokyodark.nvim"] = {
+    loaded = true,
+    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/tokyodark.nvim",
+    url = "https://github.com/tiagovla/tokyodark.nvim"
   },
   ["tokyonight-vim"] = {
     loaded = true,
