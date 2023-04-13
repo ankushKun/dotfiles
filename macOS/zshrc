@@ -164,3 +164,4 @@ export PATH="/Users/ankush/Library/Python/3.9/bin:$PATH"
 # tabtab source for slss package
 # uninstall by removing these lines or running `tabtab uninstall slss`
 [[ -f /Users/ankush/Developer/PW/aptence_student_frontend/node_modules/tabtab/.completions/slss.zsh ]] && . /Users/ankush/Developer/PW/aptence_student_frontend/node_modules/tabtab/.completions/slss.zsh
+export PATH="/usr/local/opt/openjdk@17/bin:$PATH"
