@@ -94,4 +94,9 @@ require('packer').startup(function()
 
     -- Better code folding
     use { 'kevinhwang91/nvim-ufo', requires = 'kevinhwang91/promise-async' }
+
+    -- svelte highlighting
+    use 'othree/html5.vim'
+    use 'pangloss/vim-javascript'
+    use 'evanleck/vim-svelte'
 end)
