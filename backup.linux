@@ -10,20 +10,13 @@ echo "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
 
 cd "$dotfiles"
 
-# rm -rf "$dotfiles/old/macOS"
-# mv "$dotfiles/macOS" "$dotfiles/old"
-
-# rm -rf "$dotfiles/macOS"
-# mkdir "$dotfiles/macOS"
-
-# rsync -a --delete -vh "$prefix/.config/nvim/init.lua" "$dotfiles/macOS/init.lua"
-rsync -a --delete -vh "$prefix/.config/nvim" "$dotfiles/linux/nvim"
-rsync -a --delete -vh "$prefix/.config/alacritty/alacritty.yml" "$dotfiles/linux/alacritty.yml"
-rsync -a --delete -vh "$prefix/.config/kitty/kitty.conf" "$dotfiles/linux/kitty/kitty.conf"
-rsync -a --delete -vh "$prefix/.zshrc" "$dotfiles/linux/zshrc"
-rsync -a --delete -vh "$prefix/.tmux.conf" "$dotfiles/linux/tmux.conf"
-rsync -a --delete -vh "$prefix/.p10k.zsh" "$dotfiles/linux/p10k.zsh"
-rsync -a --delete -vh "$prefix/.config/mpv" "$dotfiles/linux/mpv/"
+cp -r "$prefix/.config/nvim" "$dotfiles/linux"
+cp -r "$prefix/.config/alacritty/alacritty.yml" "$dotfiles/linux/alacritty.yml"
+cp -r "$prefix/.config/kitty/kitty.conf" "$dotfiles/linux/kitty/kitty.conf"
+cp -r "$prefix/.zshrc" "$dotfiles/linux/zshrc"
+cp -r "$prefix/.tmux.conf" "$dotfiles/linux/tmux.conf"
+cp -r "$prefix/.p10k.zsh" "$dotfiles/linux/p10k.zsh"
+cp -r "$prefix/.config/mpv" "$dotfiles/linux"
 
 git add .
 git commit -m "update dotfiles - `date +'%Y-%m-%d %H:%M:%S'`"
