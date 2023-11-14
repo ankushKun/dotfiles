@@ -74,6 +74,11 @@ end
 time([[try_loadstring definition]], false)
 time([[Defining packer_plugins]], true)
 _G.packer_plugins = {
+  LuaSnip = {
+    loaded = true,
+    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/LuaSnip",
+    url = "https://github.com/L3MON4D3/LuaSnip"
+  },
   ["alpha-nvim"] = {
     loaded = true,
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/alpha-nvim",
@@ -124,10 +129,20 @@ _G.packer_plugins = {
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/html5.vim",
     url = "https://github.com/othree/html5.vim"
   },
+  ["indent-blankline.nvim"] = {
+    loaded = true,
+    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/indent-blankline.nvim",
+    url = "https://github.com/lukas-reineke/indent-blankline.nvim"
+  },
   ["killersheep.nvim"] = {
     loaded = true,
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/killersheep.nvim",
     url = "https://github.com/seandewar/killersheep.nvim"
+  },
+  ["lsp-zero.nvim"] = {
+    loaded = true,
+    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/lsp-zero.nvim",
+    url = "https://github.com/VonHeikemen/lsp-zero.nvim"
   },
   ["lspkind-nvim"] = {
     loaded = true,
@@ -313,6 +328,11 @@ _G.packer_plugins = {
     loaded = true,
     path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/vim_current_word",
     url = "https://github.com/dominikduda/vim_current_word"
+  },
+  ["which-key.nvim"] = {
+    loaded = true,
+    path = "/Users/ankush/.local/share/nvim/site/pack/packer/start/which-key.nvim",
+    url = "https://github.com/folke/which-key.nvim"
   }
 }
 

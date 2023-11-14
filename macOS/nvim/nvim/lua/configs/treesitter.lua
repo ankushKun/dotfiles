@@ -2,8 +2,27 @@
 --                        TREESITTER                              --
 --------------------------------------------------------------------
 
+local ensure_installed = {
+    'lua',
+    'json',
+    'tsx',
+    'typescript',
+    'javascript',
+    'html',
+    'css',
+    'bash',
+    'python',
+    'rust',
+    'markdown',
+    'markdown_inline'
+}
+
 require('nvim-treesitter.configs').setup({
+    ensure_installed = ensure_installed,
     highlight = {
+        enable = true
+    },
+    autotag = {
         enable = true
     },
     indent = {
@@ -27,4 +46,3 @@ require('nvim-treesitter.configs').setup({
     }
 })
 require('nvim-ts-autotag').setup()
-

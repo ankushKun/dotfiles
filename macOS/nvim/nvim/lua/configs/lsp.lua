@@ -2,33 +2,47 @@
 --                           LSP                                  --
 --------------------------------------------------------------------
 
+
+local ensure_installed = {
+    'lua_language_server',
+    'typescript_language_server',
+    'tailwind_css_language_server',
+    'html_lsp',
+    'css_lsp',
+    'python_lsp_server',
+    'jdtls',
+    'rust_analyzer',
+}
+
+local lsp_zero = require('lsp-zero')
+
+lsp_zero.on_attach(function(client, bufnr)
+    -- see :help lsp-zero-keybindings
+    -- to learn the available actions
+    lsp_zero.default_keymaps({ buffer = bufnr })
+end)
+
 require("mason").setup({
-    ensure_installed = {
-        'lua_language_server',
-        'typescript_language_server',
-        'html_lsp',
-        'css_lsp',
-        'python_lsp_server',
-        'jdtls'
-    },
+    ensure_installed = ensure_installed,
     automatic_installation = true
 })
 
-require("mason-lspconfig").setup()
-require("mason-lspconfig").setup_handlers {
-    -- The first entry (without a key) will be the default handler
-    -- and will be called for each installed server that doesn't have
-    -- a dedicated handler.
-    function(server_name) -- default handler (optional)
-        require("lspconfig")[server_name].setup {}
-    end,
-    ["rust_analyzer"] = function()
-        require("rust-tools").setup {}
-    end
-}
-
-require("mason-null-ls").setup({
-    automatic_setup = true,
+require("mason-lspconfig").setup({
+    ensure_installed = ensure_installed,
+    handlers = {
+        lsp_zero.default_setup,
+    },
 })
 
-require("null-ls").setup()
+require('lspconfig').lua_ls.setup({
+    settings = {
+        Lua = {
+            diagnostics = {
+                globals = { 'vim', 'use' },
+            },
+        },
+    },
+})
+
+-- LSP Saga
+require('lspsaga').setup({})

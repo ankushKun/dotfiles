@@ -14,10 +14,21 @@ function map(mode, lhs, rhs, opts)
     vim.api.nvim_set_keymap(mode, lhs, rhs, options)
 end
 
--- quite current budder
+-- No yank with x
+map("n", "x", '"_x')
+
+-- Increment/decrement number
+map("n", "+", "<C-a>")
+map("n", "-", "<C-x>")
+
+-- Splits
+map("n", "<Leader>sh", ":sp<CR>")
+map("n", "<Leader>sv", ":vsp<CR>")
+
+-- Quit current buffer
 map("n", "<Leader>q", ":q<CR>")
 
--- Write current buffevr
+-- Write current buffer
 map("n", "<Leader>w", ":w<CR>")
 
 -- Close buffer
@@ -27,40 +38,40 @@ map("n", "<Leader>c", ":bd<CR>")
 map("n", "<Leader>e", ":NvimTreeToggle<CR>")
 map("n", "<Leader>o", ":NvimTreeFocus<CR>")
 
--- Packer Sync
-map("n", "<Leader>ps", ":PackerSync<CR>")
 
-map("n", "<Leader>tf", ":ToggleTerm direction='float'<CR>") -- Open floating terminal
+map("n", "<Leader>ps", ":PackerSync<CR>")                                            -- Packer Sync
 
-map("n", "<Leader>th", ":ToggleTerm<CR>") -- Open horizontal terminal
+map("n", "<Leader>tf", ":ToggleTerm direction='float'<CR>")                          -- Open floating terminal
 
-map("t", "<Esc>", [[<C-\><C-n>:ToggleTerm<CR>]]) -- Close terminal
+map("n", "<Leader>th", ":ToggleTerm<CR>")                                            -- Open horizontal terminal
 
-map("n", "<Leader>h", ":noh<CR>") -- No highlight
+map("t", "<Esc>", [[<C-\><C-n>:ToggleTerm<CR>]])                                     -- Close terminal
 
-map("n", "<Leader>lf", ":lua vim.lsp.buf.format{async=true}<CR>") -- format code
+map("n", "<Leader>h", ":noh<CR>")                                                    -- No highlight
 
-map("n", "gd", ":Telescope diagnostics<CR>") -- line diagnostics
+map("n", "<Leader>lf", ":lua vim.lsp.buf.format{async=true}<CR>", { silent = true }) -- format code
 
-map("n", "ge", ":lua vim.diagnostic.open_float()<CR>") -- shoe currnet line diagnostics
+map("n", "<Leader>dd", ":Telescope diagnostics<CR>")                                 -- All diagnostics
 
-map("n", "gD", ":lua vim.lsp.buf.definition()<CR>") -- goto definition
+map("n", "<Leader>dl", ":Lspsaga show_line_diagnostics<CR>")                         -- shoe currnet line diagnostics
 
-map("n", "<Leader>lh", ":lua vim.lsp.buf.hover()<CR>") -- hover
+map("n", "gD", ":Lspsaga goto_definition<CR>")                                       -- goto definition
+
+map("n", "<Leader>lh", ":Lspsaga peek_definition<CR>")                               -- hover/peek definition
 
 -- map("n", "<C-p>", ":MarkdownPreviewToggle<CR>") -- Markdown preview
 
-map("n", "}", ":BufferLineCycleNext<CR>") -- Buffer previous
+map("n", "}", ":BufferLineCycleNext<CR>")               -- Buffer previous
 
-map("n", "{", ":BufferLineCyclePrev<CR>") -- buffer next
+map("n", "{", ":BufferLineCyclePrev<CR>")               -- buffer next
 
-map("n", "fo", ":foldopen<CR>") -- foldopen
+map("n", "fo", ":foldopen<CR>")                         -- foldopen
 
-map("n", "fc", ":foldclose<CR>") -- foldclose
+map("n", "fc", ":foldclose<CR>")                        -- foldclose
 
-map("n", "<Leader>r", ":RunCode<CR>") -- run code
+map("n", "<Leader>r", ":RunCode<CR>")                   -- run code
 
-vim.keymap.set('n', 'fO', require('ufo').openAllFolds) -- open all folds
+vim.keymap.set('n', 'fO', require('ufo').openAllFolds)  -- open all folds
 vim.keymap.set('n', 'fC', require('ufo').closeAllFolds) -- close all folds
 
 -- Indentation

@@ -8,6 +8,12 @@
 require('packer').startup(function()
     use 'wbthomason/packer.nvim'
 
+    -- Indent lines
+    use "lukas-reineke/indent-blankline.nvim"
+
+    -- Which Key
+    use "folke/which-key.nvim"
+
     -- bottom statusline
     use { 'nvim-lualine/lualine.nvim', requires = 'kyazdani42/nvim-web-devicons' }
     use 'arkav/lualine-lsp-progress'
@@ -25,7 +31,22 @@ require('packer').startup(function()
     use "tpope/vim-sleuth"
 
     -- LSP
-    -- use { 'williamboman/nvim-lsp-installer', requires = 'neovim/nvim-lspconfig' }
+    use {
+        'VonHeikemen/lsp-zero.nvim',
+        branch = 'v3.x',
+        requires = {
+            --- Uncomment these if you want to manage LSP servers from neovim
+            { 'williamboman/mason.nvim' },
+            { 'williamboman/mason-lspconfig.nvim' },
+
+            -- LSP Support
+            { 'neovim/nvim-lspconfig' },
+            -- Autocompletion
+            { 'hrsh7th/nvim-cmp' },
+            { 'hrsh7th/cmp-nvim-lsp' },
+            { 'L3MON4D3/LuaSnip' },
+        }
+    }
     use 'hrsh7th/cmp-nvim-lsp'
     use 'hrsh7th/cmp-buffer'
     use 'hrsh7th/cmp-path'
@@ -36,7 +57,7 @@ require('packer').startup(function()
     use 'williamboman/mason-lspconfig.nvim'
     use 'jay-babu/mason-null-ls.nvim'
     use 'neovim/nvim-lspconfig'
-    use 'glepnir/lspsaga.nvim'
+    use { 'glepnir/lspsaga.nvim' }
     use 'onsails/lspkind-nvim'
 
     -- Rust
