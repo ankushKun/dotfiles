@@ -3,7 +3,14 @@
 --------------------------------------------------------------------
 
 require("mason").setup({
-    ensure_installed = {},
+    ensure_installed = {
+        'lua_language_server',
+        'typescript_language_server',
+        'html_lsp',
+        'css_lsp',
+        'python_lsp_server',
+        'jdtls'
+    },
     automatic_installation = true
 })
 
@@ -15,29 +22,13 @@ require("mason-lspconfig").setup_handlers {
     function(server_name) -- default handler (optional)
         require("lspconfig")[server_name].setup {}
     end,
-    -- Next, you can provide a dedicated handler for specific servers.
-    -- For example, a handler override for the `rust_analyzer`:
-    -- ["lua-language-server"] = function()
-    --     require('lspconfig').sumneko_lua.setup({
-    --         settings = {
-    --             Lua = {
-    --                 diagnostics = {
-    --                     globals = { "vim", "use" },
-    --                     disable = { "lowercase-global" }
-    --                 }
-    --             }
-    --         }
-    --     })
-    -- end
+    ["rust_analyzer"] = function()
+        require("rust-tools").setup {}
+    end
 }
 
 require("mason-null-ls").setup({
     automatic_setup = true,
 })
 
--- require("mason-null-ls").setup_handlers {
---    function(source_name, methods)
---        require("mason-null-ls.automatic_setup")(source_name, methods)
---    end
---}
 require("null-ls").setup()

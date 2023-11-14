@@ -144,9 +144,9 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 export PATH="/usr/local/opt/openjdk/bin:$PATH"
 export CPPFLAGS="-I/usr/local/opt/openjdk/include"
+export PATH="/usr/local/opt/openjdk@8/bin:$PATH"
 
 export PATH="/opt/metasploit-framework/bin:$PATH"
-export MONO_GAC_PREFIX="/usr/local"
 export PATH="/Users/ankush/.spicetify:$PATH"
 export PATH="/Users/ankush/.local/share/solana/install/active_release/bin:$PATH"
 export PATH="/Users/ankush/smartpy-cli:$PATH"
@@ -165,3 +165,11 @@ export PATH="/Users/ankush/Library/Python/3.9/bin:$PATH"
 # uninstall by removing these lines or running `tabtab uninstall slss`
 [[ -f /Users/ankush/Developer/PW/aptence_student_frontend/node_modules/tabtab/.completions/slss.zsh ]] && . /Users/ankush/Developer/PW/aptence_student_frontend/node_modules/tabtab/.completions/slss.zsh
 export PATH="/usr/local/opt/openjdk@17/bin:$PATH"
+
+export DOTNET_ROOT="/usr/local/opt/dotnet/libexec"
+export MONO_GAC_PREFIX="/usr/local"
+export PATH="/usr/local/opt/openjdk@11/bin:$PATH"
+export ANDROID_HOME=/Users/ankush/Library/Android/sdk
+export PATH="/usr/local/opt/qt@5/bin:$PATH"
+
+export PATH="$PATH:/Users/ankush/Developer/TOOLS/flutter/bin"

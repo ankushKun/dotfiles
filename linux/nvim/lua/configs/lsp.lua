@@ -3,7 +3,7 @@
 --------------------------------------------------------------------
 
 require("mason").setup({
-    ensure_installed = { 'lua-language-server', 'typescript-language-server', 'html-lsp', 'css-lsp', 'python-lsp-server' },
+    ensure_installed = { 'lua-language-server', 'typescript-language-server', 'html-lsp', 'css-lsp', 'python-lsp-server', 'jdtls' },
     automatic_installation = true
 })
 

@@ -39,6 +39,9 @@ require('packer').startup(function()
     use 'glepnir/lspsaga.nvim'
     use 'onsails/lspkind-nvim'
 
+    -- Rust
+    use 'simrat39/rust-tools.nvim'
+
     -- File explorer
     use { 'kyazdani42/nvim-tree.lua', requires = 'kyazdani42/nvim-web-devicons' }
 
@@ -101,30 +104,30 @@ require('packer').startup(function()
     use 'evanleck/vim-svelte'
 
     -- php laravel
-    use {
-        "adalessa/laravel.nvim",
-        dependencies = {
-            "nvim-telescope/telescope.nvim",
-            "tpope/vim-dotenv",
-            "MunifTanjim/nui.nvim",
-        },
-        cmd = { "Sail", "Artisan", "Composer", "Npm", "Yarn", "Laravel" },
-        keys = {
-            { "<leader>la", ":Laravel artisan<cr>" },
-            { "<leader>lr", ":Laravel routes<cr>" },
-            {
-                "<leader>lt",
-                function()
-                    require("laravel.tinker").send_to_tinker()
-                end,
-                mode = "v",
-                desc = "Laravel Application Routes",
-            },
-        },
-        event = { "VeryLazy" },
-        config = function()
-            require("laravel").setup()
-            require("telescope").load_extension "laravel"
-        end,
-    }
+    -- use {
+    --     "adalessa/laravel.nvim",
+    --     dependencies = {
+    --         "nvim-telescope/telescope.nvim",
+    --         "tpope/vim-dotenv",
+    --         "MunifTanjim/nui.nvim",
+    --     },
+    --     cmd = { "Sail", "Artisan", "Composer", "Npm", "Yarn", "Laravel" },
+    --     keys = {
+    --         { "<leader>la", ":Laravel artisan<cr>" },
+    --         { "<leader>lr", ":Laravel routes<cr>" },
+    --         {
+    --             "<leader>lt",
+    --             function()
+    --                 require("laravel.tinker").send_to_tinker()
+    --             end,
+    --             mode = "v",
+    --             desc = "Laravel Application Routes",
+    --         },
+    --     },
+    --     event = { "VeryLazy" },
+    --     config = function()
+    --         require("laravel").setup()
+    --         require("telescope").load_extension "laravel"
+    --     end,
+    -- }
 end)
