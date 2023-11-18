@@ -25,7 +25,7 @@ vim.opt.cursorline = true
 
 -- Neovide options
 if (vim.fn.exists('neovide') == 1) then
-    vim.g.neovide_transparency = 0.90
+    vim.g.neovide_transparency = 0.95
     vim.g.neovide_input_use_logo = 1
     vim.g.neovide_remember_window_size = 1
 end

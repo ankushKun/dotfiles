@@ -117,7 +117,7 @@ export EDITOR=nvim
 
 alias v=nvim
 alias sv=sudo\ nvim
-alias nv=neovide\ --multigrid\ --frame\ buttonless
+alias nv=neovide\ --multigrid\ --frame\ none
 alias sshk="kitty +kitten ssh"
 
 if [ -d "/usr/local/Cellar/ruby/3.2.0/bin" ]; then
@@ -173,3 +173,5 @@ export ANDROID_HOME=/Users/ankush/Library/Android/sdk
 export PATH="/usr/local/opt/qt@5/bin:$PATH"
 
 export PATH="$PATH:/Users/ankush/Developer/TOOLS/flutter/bin"
+
+alias icloud="cd /Users/ankush/Library/Mobile\ Documents/com~apple~CloudDocs"

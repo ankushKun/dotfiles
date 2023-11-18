@@ -7,19 +7,21 @@ vim.g.mapleader = " "
 
 -- Functional wrapper for mapping custom keybindings
 function map(mode, lhs, rhs, opts)
-    local options = { noremap = true }
+    local options = { noremap = true, silent = true }
     if opts then
         options = vim.tbl_extend("force", options, opts)
     end
     vim.api.nvim_set_keymap(mode, lhs, rhs, options)
 end
 
--- No yank with x
-map("n", "x", '"_x')
+-- no yank with dd
+map("n", "dd", '"_dd')
+
+map("n", "<Leader>ff", ":Telescope find_files<CR>")                                  -- Find files
 
 -- Increment/decrement number
-map("n", "+", "<C-a>")
-map("n", "-", "<C-x>")
+-- map("n", "+", "<C-a>")
+-- map("n", "-", "<C-x>")
 
 -- Splits
 map("n", "<Leader>sh", ":sp<CR>")

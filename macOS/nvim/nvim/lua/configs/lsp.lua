@@ -4,12 +4,12 @@
 
 
 local ensure_installed = {
-    'lua_language_server',
-    'typescript_language_server',
-    'tailwind_css_language_server',
-    'html_lsp',
-    'css_lsp',
-    'python_lsp_server',
+    'lua_ls',
+    'tsserver',
+    'tailwindcss',
+    'html',
+    'cssls',
+    'jedi_language_server',
     'jdtls',
     'rust_analyzer',
 }
