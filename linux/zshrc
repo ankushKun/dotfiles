@@ -121,3 +121,5 @@ source $HOME/.nvm/bash_completion
 export PATH="$PATH:/home/ankush/.local/bin"
 
 export PATH=$PATH:/home/ankush/.spicetify
+
+export ANDROID_HOME=/lib/android-sdk

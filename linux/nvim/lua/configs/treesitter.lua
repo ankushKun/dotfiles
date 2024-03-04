@@ -13,24 +13,26 @@ require('nvim-treesitter.configs').setup({
     indent = {
         enable = true
     },
-    context_commentstring = {
-        enable = true,
-        config = {
-            javascript = {
-                __default = '// %s',
-                jsx_element = '{/* %s */}',
-                jsx_fragment = '{/* %s */}',
-                jsx_attribute = '// %s',
-                comment = '// %s'
-            },
-            csharp = {
-                __default = '// %s',
-                comment = '// %s'
-            },
-        }
-    }
+    -- context_commentstring = {
+    --     enable = true,
+    --     config = {
+    --         javascript = {
+    --             __default = '// %s',
+    --             jsx_element = '{/* %s */}',
+    --             jsx_fragment = '{/* %s */}',
+    --             jsx_attribute = '// %s',
+    --             comment = '// %s'
+    --         },
+    --         csharp = {
+    --             __default = '// %s',
+    --             comment = '// %s'
+    --         },
+    --     }
+    -- }
 })
 require('nvim-ts-autotag').setup()
+vim.g.skip_ts_context_commentstring_module = true
+require('ts_context_commentstring').setup{}
 
 vim.lsp.handlers['textDocument/publishDiagnostics'] = vim.lsp.with(
     vim.lsp.diagnostic.on_publish_diagnostics,

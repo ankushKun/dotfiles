@@ -41,3 +41,9 @@ require("mason-null-ls").setup({
 --    end
 --}
 require("null-ls").setup()
+
+require("lspsaga").setup({
+    ui={
+        code_action=''
+    }
+})

@@ -107,4 +107,13 @@ else
     echo "dotfiles cloned already"
 fi
 
+if ! command -v alacritty &> /dev/null
+then
+    echo "installing alacritty"
+    sudo add-apt-repository ppa:aslatter/ppa -y
+    sudo apt install alacritty
+else
+    echo "alacritty already installed"
+fi
+
 bash restore.linux
