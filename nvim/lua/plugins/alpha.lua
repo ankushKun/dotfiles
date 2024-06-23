@@ -10,7 +10,7 @@ return {
 
     dashboard.section.header.val = {
       [[                                                                       ]],
-      [[                                                                       ]],
+      [[    Weeblets                                                           ]],
       [[                                                                       ]],
       [[                                                                       ]],
       [[                                                                     ]],
