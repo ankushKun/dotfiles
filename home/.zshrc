@@ -43,7 +43,6 @@ export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="powerlevel10k/powerlevel10k"
 COMPLETION_WAITING_DOTS="true"
 DISABLE_UNTRACKED_FILES_DIRTY="true"
-typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
 
 # Which plugins would you like to load?
 # Standard plugins can be found in $ZSH/plugins/
@@ -53,6 +52,10 @@ typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
 plugins=(git zsh-autosuggestions zsh-syntax-highlighting)
 
 source $ZSH/oh-my-zsh.sh
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
 
 # User configuration
 
@@ -70,11 +73,13 @@ fi
 # export ARCHFLAGS="-arch x86_64"
 
 alias zshconfig="$EDITOR ~/.zshrc"
+alias icloud="cd /Users/$(whoami)/Library/Mobile\ Documents/com~apple~CloudDocs"
+alias v=nvim
+alias sv=sudo\ nvim
+alias nv=neovide\ --multigrid\ --frame\ none
+alias lv=/Users/$(whoami)/.local/bin/lvim
+alias sshk="kitty +kitten ssh"
 
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
-alias lv=/Users/weeblet/.local/bin/lvim
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
 
@@ -82,3 +87,8 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
+export PATH="$HOME/.cargo/bin:$PATH"
+export PATH="/usr/local/sbin:$PATH"
+export PATH="/usr/local/bin:$PATH"
+
+export HOMEBREW_NO_AUTO_UPDATE=1
