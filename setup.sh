@@ -22,3 +22,10 @@ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:
 
 cp $DOTFILES_DIR/.zshrc $HOME/.zshrc
 cp $DOTFILES_DIR/.p10k.zsh $HOME/.p10k.zsh
+
+
+# install brew
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+brew install tmux
+brew install --cask kitty
