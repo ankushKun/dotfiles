@@ -115,3 +115,4 @@ source $ZSH/oh-my-zsh.sh
 
 alias lv=/Users/weeblet/.local/bin/lvim
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+export PATH="/opt/homebrew/bin:$PATH"
