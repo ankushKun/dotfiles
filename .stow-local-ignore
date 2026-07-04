@@ -2,6 +2,7 @@
 \.gitignore
 \.stow-local-ignore
 \.DS_Store
+\.config/\.DS_Store
 README.*
 LICENSE.*
 COPYING
@@ -10,3 +11,4 @@ bootstrap\.sh
 Brewfile
 rectangle\.json
 AGENTS\.md
+Makefile

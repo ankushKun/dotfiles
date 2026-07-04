@@ -10,76 +10,95 @@ Personal dotfiles repo for macOS (Apple Silicon). Not an application codebase �
 
 ```
 .dotfiles/
-├── .zshrc, .zshenv, .zprofile, .p10k.zsh   # Shell (stowed to ~/)
+├── Makefile, README.md         # NOT stowed
+├── .zshrc, .zshenv, .zprofile, .p10k.zsh
 ├── .config/
-│   ├── git/config
+│   ├── git/config              # pull.rebase = true
 │   ├── kitty/
-│   ├── nvim/init.lua          # Single-file lazy.nvim config (~2500 lines)
+│   ├── nvim/
+│   │   ├── init.lua            # thin entry (requires config/*)
+│   │   ├── lazy-lock.json
+│   │   └── lua/
+│   │       ├── config/         # options, colors, keymaps, autocmds, lazy
+│   │       └── plugins/        # ui, navigation, git, treesitter, lsp, etc.
 │   ├── tmux/
 │   └── yazi/
-├── Brewfile                    # Homebrew packages (NOT stowed)
-├── bootstrap.sh                # curl | bash entry point (NOT stowed)
-├── rectangle.json              # Copied on install (NOT stowed)
+├── Brewfile
+├── bootstrap.sh
+├── rectangle.json
 └── scripts/
-    ├── install.sh              # Main installer
-    ├── setup-ssh.sh            # SSH key generation for GitHub
-    ├── register-fonts.sh     # CoreText font registration (macOS 27)
-    └── macos-defaults.sh       # defaults write preferences
+    ├── install.sh
+    ├── setup-ssh.sh
+    ├── register-fonts.sh
+    ├── macos-defaults.sh
+    └── doctor.sh
 ```
 
 ## Deployment
 
 - **GNU Stow** symlinks repo contents into `$HOME`.
-- Run from repo root: `stow -d ~/.dotfiles -t ~ --restow .`
-- Files matching `.stow-local-ignore` are excluded from stow (scripts, Brewfile, README, etc.).
+- `make stow` or `stow -d ~/.dotfiles -t ~ --restow .`
+- Files matching `.stow-local-ignore` are excluded (scripts, Brewfile, Makefile, README, etc.).
 - `rectangle.json` is copied (not symlinked) because Rectangle rejects symlinks.
+
+## Make targets
+
+| Target | Action |
+|---|---|
+| `make install` | Full setup via `scripts/install.sh` |
+| `make stow` | Deploy symlinks only |
+| `make doctor` | Run health checks |
+| `make ssh` | Generate/show GitHub SSH key |
+| `make defaults` | Apply macOS preferences |
+| `make fonts` | Register MesloLGS NF with CoreText |
+
+## Neovim module map
+
+| File | Contents |
+|---|---|
+| `lua/config/options.lua` | vim.opt, leader keys |
+| `lua/config/colors.lua` | Tokyo Night ui_colors + highlight overrides |
+| `lua/config/buffers.lua` | close_buffer helpers |
+| `lua/config/keymaps.lua` | Non-plugin keymaps |
+| `lua/config/autocmds.lua` | Autocommands |
+| `lua/config/lazy.lua` | lazy.nvim bootstrap |
+| `lua/config/neovide.lua` | Neovide-only settings |
+| `lua/config/qol.lua` | Post-plugin vim.opt tweaks |
+| `lua/plugins/*.lua` | Plugin specs by category |
+
+After editing nvim config: `nvim --headless +"Lazy! sync" +qa`
 
 ## Conventions
 
-- **Apple Silicon only** — Homebrew paths use `/opt/homebrew`, not `/usr/local`.
-- **Theming** — Tokyo Night palette across kitty, tmux, nvim, and yazi. Keep colors consistent.
-- **Fonts** — `MesloLGS NF` bundled in `Library/Fonts/` (stowed to `~/Library/Fonts/`). From powerlevel10k-media. Do not use the Homebrew `font-meslo-lg-nerd-font` cask — different font build with different metrics.
-- **Tmux** — Auto-starts only when `TERM_PROGRAM=kitty` or `DOTFILES_TMUX=1`.
-- **Yazi git plugin** — Vendored at `.config/yazi/plugins/git.yazi/`. Do not add `package.toml` (duplicates the vendored copy).
-- **Git identity** — Stored in `.config/git/config` intentionally (public info).
+- **Apple Silicon only** — Homebrew paths use `/opt/homebrew`.
+- **Theming** — Tokyo Night; base bg `#101015` across kitty, yazi, nvim.
+- **Fonts** — `MesloLGS NF` bundled in `Library/Fonts/` from powerlevel10k-media.
+- **Tmux** — Auto-starts only in Kitty (`TERM_PROGRAM=kitty`) or `DOTFILES_TMUX=1`.
+- **Yazi** — 3-pane ratio `[1, 3, 4]`; built-in `size` linemode; git plugin vendored.
+- **Git** — `pull.rebase = true` in stowed git config.
 
 ## Do not
 
 - Add Intel Mac `/usr/local` fallbacks unless explicitly requested.
-- Symlink `rectangle.json` — always copy it in `install.sh`.
-- Shadow `grep`/`find` with aliases in `.zshrc` — breaks scripts.
-- Auto-attach tmux in all terminals — Kitty only by default.
-- Commit secrets (.env, tokens, private keys). SSH private keys live in `~/.ssh/`, never in this repo.
-
-## Safe change patterns
-
-| Task | Where to edit |
-|---|---|
-| New CLI tool | `Brewfile` |
-| Shell alias/function | `.zshrc` (interactive) or `.zshenv` (env vars) |
-| PATH / editor | `.zshenv` |
-| Homebrew env | `.zprofile` |
-| Terminal appearance | `.config/kitty/kitty.conf` |
-| Tmux behavior | `.config/tmux/tmux.conf` |
-| Neovim plugins/LSP | `.config/nvim/init.lua` |
-| macOS system prefs | `scripts/macos-defaults.sh` |
-| New install step | `scripts/install.sh` (use `try` helper for non-fatal steps) |
+- Symlink `rectangle.json`.
+- Shadow `grep`/`find` with aliases in `.zshrc`.
+- Auto-attach tmux outside Kitty by default.
+- Commit secrets or SSH private keys.
 
 ## Install flow
 
 ```
-bootstrap.sh → clone ~/.dotfiles → scripts/install.sh
-  → brew bundle → nvm → stow → register-fonts → setup-ssh → rectangle copy → macos-defaults
+bootstrap.sh (HTTPS clone) → scripts/install.sh
+  → brew bundle → nvm → stow → register-fonts → setup-ssh → rectangle → macos-defaults
 ```
 
-## Testing changes
+After SSH key is on GitHub, `setup-ssh.sh` offers switching origin to SSH.
 
-After editing stowed configs:
+## Testing
 
 ```bash
-stow -d ~/.dotfiles -t ~ --restow .
-source ~/.zshrc
-tmux source ~/.config/tmux/tmux.conf   # if in tmux
+make doctor
+make stow && source ~/.zshrc
 ```
 
-Do not run `scripts/macos-defaults.sh` casually — it modifies system-wide preferences and may prompt for sudo.
+Do not run `macos-defaults.sh` casually — modifies system preferences.

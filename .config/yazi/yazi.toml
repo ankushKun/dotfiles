@@ -1,27 +1,19 @@
-# yazi general config.
-# Tokyo Night themed — see .config/yazi/theme.toml for colors.
-#
-# Image preview in tmux + kitty requires tmux >= 3.4 with the
-# Kitty graphics protocol passthrough. The existing tmux.conf already
-# sets `terminal-features ",xterm-256color:RGB"`, which is enough for
-# the current tmux release line.
+# yazi general config — Tokyo Night, nvim-style 3-pane layout.
 
 [mgr]
-# Mimics the nvim split: a narrow file tree on the left, a wider
-# current-pane in the middle, and a roomy preview pane on the right.
-ratio        = [1, 2, 5]
-sort_by      = "natural"
+ratio          = [1, 3, 4]
+sort_by        = "natural"
 sort_dir_first = true
-linemode     = "size_and_mtime"   # defined in init.lua
-show_hidden  = false
-show_symlink = true
-scrolloff    = 5
-mouse_events = ["click", "scroll", "touch", "move"]
+linemode       = "size"
+show_hidden    = false
+show_symlink   = true
+scrolloff      = 5
+mouse_events   = ["click", "scroll", "touch", "move"]
 
 [preview]
 tab_size      = 2
-max_width     = 2000
-max_height    = 2000
+max_width     = 1200
+max_height    = 1200
 image_filter  = "lanczos3"
 image_quality = 90
 
@@ -54,7 +46,6 @@ plugin_workers  = 2
 fetch_workers   = 4
 preload_workers = 2
 
-# Git status plugin — vendored at plugins/git.yazi/
 [plugin]
 prepend_previewers = [
   { mime = "text/markdown", run = "glow" },

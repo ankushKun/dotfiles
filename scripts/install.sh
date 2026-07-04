@@ -105,7 +105,7 @@ done
 header "Font Registration"
 # ------------------------------------------------------------------
 if [ -f "$DOTFILES/scripts/register-fonts.sh" ]; then
-  try "Register Meslo Nerd Font with CoreText" bash "$DOTFILES/scripts/register-fonts.sh"
+  try "Register MesloLGS NF with CoreText" bash "$DOTFILES/scripts/register-fonts.sh"
 else
   skip "register-fonts.sh not found"
 fi
@@ -150,6 +150,8 @@ if [ "$errors" -eq 0 ]; then
   printf "\n  \033[1;32mAll done! Dotfiles deployed successfully.\033[0m\n\n"
   echo "  Next steps:"
   echo "    • Add the SSH public key (printed above) to GitHub"
+  echo "    • Switch dotfiles remote to SSH when prompted (or run: make ssh)"
+  echo "    • Run: make doctor"
   echo "    • Restart your terminal or run: source ~/.zshrc"
   echo "    • Restart kitty to pick up font/shell changes"
   echo "    • Some macOS defaults may require logout/restart"

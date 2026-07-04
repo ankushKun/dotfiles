@@ -3,7 +3,7 @@
 # Remote Bootstrap — curl | bash
 #   curl -fsSL https://raw.githubusercontent.com/ankushKun/dotfiles/main/bootstrap.sh | bash
 #
-# Clones dotfiles to ~/.dotfiles, installs prerequisites, and deploys configs.
+# Clones dotfiles to ~/.dotfiles via HTTPS (SSH remote set after setup-ssh.sh).
 # Idempotent — safe to re-run on an existing setup.
 # ============================================================================
 
