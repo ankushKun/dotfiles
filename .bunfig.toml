@@ -1,0 +1,4 @@
+# Supply chain: reject package versions published less than 10 days ago (864000 seconds).
+# Bun default-secure: only trustedDependencies run lifecycle scripts.
+[install]
+minimumReleaseAge = 864000

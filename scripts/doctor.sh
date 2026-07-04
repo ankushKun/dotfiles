@@ -126,6 +126,87 @@ else
   warn "git pull.rebase not enabled"
 fi
 
+# Node.js supply chain (Layer 1 + 2)
+echo ""
+echo "==> Node supply chain security"
+
+if grep -q 'XDG_CONFIG_HOME' "$HOME/.zshenv" 2>/dev/null; then
+  ok "XDG_CONFIG_HOME set in ~/.zshenv"
+else
+  fail "XDG_CONFIG_HOME missing in ~/.zshenv (run: make stow)"
+fi
+
+for pm_config in .npmrc .bunfig.toml .yarnrc.yml .nvmrc; do
+  check_symlink "$HOME/$pm_config"
+done
+
+if [ -L "$HOME/.config/pnpm/config.yaml" ] && readlink "$HOME/.config/pnpm/config.yaml" | grep -q ".dotfiles"; then
+  ok "Symlink OK: $HOME/.config/pnpm/config.yaml"
+elif [ -f "$HOME/.config/pnpm/config.yaml" ] && grep -q "minimumReleaseAge: 14400" "$HOME/.config/pnpm/config.yaml" 2>/dev/null; then
+  ok "pnpm config present: $HOME/.config/pnpm/config.yaml"
+else
+  fail "pnpm config missing (run: make stow)"
+fi
+
+node_bin=""
+npm_bin=""
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+  # shellcheck disable=SC1091
+  . "$HOME/.nvm/nvm.sh"
+  command -v node &>/dev/null && node_bin=$(command -v node)
+  command -v npm &>/dev/null && npm_bin=$(command -v npm)
+fi
+
+if [ -n "$node_bin" ]; then
+  node_major=$("$node_bin" -p "process.versions.node.split('.')[0]" 2>/dev/null || echo 0)
+  if [ "$node_major" -ge 22 ] 2>/dev/null; then
+    ok "Node installed ($("$node_bin" --version), npm min-release-age requires >= 22)"
+  else
+    warn "Node $("$node_bin" --version) — upgrade to LTS >= 22 for npm min-release-age (run: nvm install)"
+  fi
+else
+  warn "Node not found via nvm (run: make install or nvm install)"
+fi
+
+if [ -n "$npm_bin" ]; then
+  min_age=$("$npm_bin" config get min-release-age 2>/dev/null | tr -d '[:space:]')
+  if [ "$min_age" = "10" ]; then
+    ok "npm min-release-age = 10 days"
+  else
+    fail "npm min-release-age is '$min_age' (expected 10; run: make stow)"
+  fi
+fi
+
+pnpm_bin=""
+if command -v pnpm &>/dev/null; then
+  pnpm_bin=$(command -v pnpm)
+elif [ -x /opt/homebrew/bin/pnpm ]; then
+  pnpm_bin=/opt/homebrew/bin/pnpm
+fi
+
+if [ -n "$pnpm_bin" ]; then
+  pnpm_age=$("$pnpm_bin" config get minimumReleaseAge 2>/dev/null | tr -d '[:space:]')
+  if [ "$pnpm_age" = "14400" ]; then
+    ok "pnpm minimumReleaseAge = 14400 minutes (10 days)"
+  else
+    fail "pnpm minimumReleaseAge is '$pnpm_age' (expected 14400; run: make stow)"
+  fi
+  pnpm_trust=$("$pnpm_bin" config get trustPolicy 2>/dev/null | tr -d '[:space:]')
+  if [ "$pnpm_trust" = "no-downgrade" ]; then
+    ok "pnpm trustPolicy = no-downgrade"
+  else
+    warn "pnpm trustPolicy is '$pnpm_trust' (expected no-downgrade)"
+  fi
+else
+  warn "pnpm not found"
+fi
+
+if command -v corepack &>/dev/null; then
+  ok "Corepack available (Yarn)"
+else
+  warn "Corepack not available — run: corepack enable"
+fi
+
 echo ""
 if [ "$errors" -eq 0 ]; then
   printf "  \033[1;32mAll critical checks passed.\033[0m"

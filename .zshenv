@@ -4,6 +4,7 @@ export VISUAL="nvim"
 export LANG="en_US.UTF-8"
 export HOMEBREW_NO_AUTO_UPDATE="1"
 export HOMEBREW_NO_ENV_HINTS="1"
+export XDG_CONFIG_HOME="$HOME/.config"
 export PNPM_HOME="$HOME/.local/share/pnpm"
 export NVM_DIR="$HOME/.nvm"
 

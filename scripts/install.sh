@@ -93,6 +93,28 @@ else
   fail "stow not available — skip stow packages"
 fi
 
+# ------------------------------------------------------------------
+header "Node.js (LTS + supply chain defaults)"
+# ------------------------------------------------------------------
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+  # shellcheck disable=SC1091
+  . "$HOME/.nvm/nvm.sh"
+  nvmrc="${DOTFILES}/.nvmrc"
+  if [ -f "$nvmrc" ]; then
+    try "Install Node from .nvmrc" nvm install
+    try "Set default Node from .nvmrc" nvm alias default "$(cat "$nvmrc")"
+    if command -v corepack &>/dev/null; then
+      try "Enable Corepack (Yarn)" corepack enable
+    else
+      skip "corepack not available — install a newer Node LTS for Yarn support"
+    fi
+  else
+    skip ".nvmrc not found — Node LTS not installed"
+  fi
+else
+  skip "NVM not loaded — Node LTS not installed"
+fi
+
 # Remove broken font symlinks (e.g. after fonts were temporarily removed from the repo)
 for legacy in "$HOME/Library/Fonts"/MesloLGS\ NF*.ttf; do
   if [ -L "$legacy" ] && [ ! -e "$legacy" ]; then

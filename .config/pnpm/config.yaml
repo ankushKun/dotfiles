@@ -1,0 +1,7 @@
+# Supply chain hardening (global pnpm config; requires XDG_CONFIG_HOME in .zshenv).
+minimumReleaseAge: 14400        # 10 days (minutes)
+minimumReleaseAgeStrict: true   # fail instead of falling back to too-new versions
+trustPolicy: no-downgrade       # block versions with weaker publish trust than prior releases
+blockExoticSubdeps: true        # transitive deps must come from registry, not git/tarball URLs
+strictDepBuilds: true           # block dependency lifecycle scripts unless allowBuilds permits them
+ignoreScripts: true             # do not run root package.json scripts on install
