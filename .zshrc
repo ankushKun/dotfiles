@@ -32,6 +32,11 @@ source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 ZSH_AUTOSUGGEST_MANUAL_REBIND=1
 ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
 
+# Emacs line editing — kitty Option+arrow sends Meta+b/f (see kitty.conf).
+# zsh defaults to vi mode when EDITOR/VISUAL contain "vi" (nvim).
+bindkey -e
+(( ${+ZSH_AUTOSUGGEST_MANUAL_REBIND} )) && _zsh_autosuggest_bind_widgets
+
 # Aliases
 alias ls='eza --icons=always'
 alias la='ls -a'
