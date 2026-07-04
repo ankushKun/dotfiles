@@ -1,0 +1,12 @@
+\.git
+\.gitignore
+\.stow-local-ignore
+\.DS_Store
+README.*
+LICENSE.*
+COPYING
+scripts
+bootstrap\.sh
+Brewfile
+rectangle\.json
+AGENTS\.md

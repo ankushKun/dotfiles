@@ -1,0 +1,9 @@
+[user]
+	name = ankushKun
+	email = ankush4singh@gmail.com
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = false

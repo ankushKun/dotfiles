@@ -1,0 +1,188 @@
+# Tokyo Night theme for Yazi
+# Palette mirrors the colors used by kitty, tmux, and nvim in this repo.
+#
+# Tokyo Night (Night variant) base:
+#   bg        #1a1b26
+#   bg+1      #16161e   (kitty tab text / tab fg)
+#   bg_dim    #24283b   (status bar)
+#   bg_dark   #292e42   (inactive tab bg / pane border)
+#   sel       #283457   (selection)
+#   border    #7aa2f7   (blue)
+#   fg        #c0caf5
+#   fg_dim    #a9b1d6
+#   muted     #545c7e
+#   comment   #565f89
+#   red       #f7768e / dark #db4b4b
+#   green     #9ece6a
+#   yellow    #e0af68
+#   orange    #ff9e64
+#   blue      #7aa2f7
+#   purple    #bb9af7
+#   cyan      #7dcfff
+#   teal      #73daca
+
+[app]
+overall = { bg = "#1a1b26" }
+
+[mgr]
+fg            = "#c0caf5"
+bg            = "#1a1b26"
+hovered       = { fg = "#c0caf5", bg = "#283457" }
+selected      = { fg = "#c0caf5", bg = "#292e42" }
+cwd           = { fg = "#7aa2f7", bold = true }
+find_keyword  = { fg = "#16161e", bg = "#e0af68", bold = true }
+find_position = { fg = "#73daca", bold = true }
+symlink_target = { fg = "#565f89", italic = true }
+
+marker_copied   = { fg = "#9ece6a", bold = true }
+marker_cut      = { fg = "#f7768e", bold = true }
+marker_marked   = { fg = "#ff9e64", bold = true }
+marker_selected = { fg = "#7aa2f7", bold = true }
+
+count_copied   = { fg = "#9ece6a", bold = true }
+count_cut      = { fg = "#f7768e", bold = true }
+count_selected = { fg = "#7aa2f7", bold = true }
+
+border_symbol = "│"
+border_style  = { fg = "#292e42" }
+
+# Code preview highlighting theme.
+syntect_theme = "~/.config/yazi/themes/tokyo-night.tmTheme"
+
+[indicator]
+parent  = { bg = "#292e42" }
+current = { bg = "#9ece6a" }
+preview = { bg = "#7aa2f7" }
+padding = { open = "", close = "" }
+
+[tabs]
+active   = { fg = "#16161e", bg = "#7aa2f7", bold = true }
+inactive = { fg = "#545c7e", bg = "#292e42" }
+sep_inner = { open = "", close = "" }
+sep_outer = { open = "", close = "" }
+
+[mode]
+normal_main = { fg = "#16161e", bg = "#9ece6a", bold = true }
+normal_alt  = { fg = "#9ece6a", bg = "#24283b", bold = true }
+select_main = { fg = "#16161e", bg = "#e0af68", bold = true }
+select_alt  = { fg = "#e0af68", bg = "#24283b", bold = true }
+unset_main  = { fg = "#16161e", bg = "#f7768e", bold = true }
+unset_alt   = { fg = "#f7768e", bg = "#24283b", bold = true }
+
+[status]
+overall          = { fg = "#c0caf5", bg = "#24283b" }
+sep_left         = { open = "", close = "" }
+sep_right        = { open = "", close = "" }
+perm_type        = { fg = "#7aa2f7" }
+perm_read        = { fg = "#e0af68" }
+perm_write       = { fg = "#f7768e" }
+perm_exec        = { fg = "#9ece6a" }
+perm_sep         = { fg = "#565f89" }
+progress_label   = { fg = "#7dcfff", bold = true }
+progress_normal  = { fg = "#9ece6a", bg = "#9ece6a" }
+progress_error   = { fg = "#f7768e", bg = "#f7768e" }
+
+[which]
+cols = 1
+mask = { bg = "#24283b" }
+cand = { fg = "#7dcfff", bold = true }
+rest = { fg = "#545c7e" }
+desc = { fg = "#c0caf5" }
+separator       = " -> "
+separator_style = { fg = "#565f89" }
+
+[confirm]
+border    = { fg = "#7aa2f7" }
+title     = { fg = "#7aa2f7", bg = "#24283b", bold = true }
+body      = { fg = "#c0caf5", bg = "#1a1b26" }
+list      = { fg = "#c0caf5", bg = "#1a1b26" }
+btn_yes   = { fg = "#9ece6a", bg = "#1a1b26", bold = true }
+btn_no    = { fg = "#f7768e", bg = "#1a1b26", bold = true }
+btn_labels = ["Yes", "No"]
+
+[spot]
+border   = { fg = "#7aa2f7" }
+title    = { fg = "#7aa2f7", bg = "#24283b", bold = true }
+tbl_col  = { fg = "#7aa2f7", bg = "#24283b", bold = true }
+tbl_cell = { fg = "#c0caf5", bg = "#283457", bold = true }
+
+[notify]
+title_info  = { fg = "#7dcfff", bg = "#24283b", bold = true }
+title_warn  = { fg = "#e0af68", bg = "#24283b", bold = true }
+title_error = { fg = "#f7768e", bg = "#24283b", bold = true }
+
+[pick]
+border  = { fg = "#7aa2f7" }
+active  = { fg = "#16161e", bg = "#7aa2f7", bold = true }
+inactive = { fg = "#c0caf5", bg = "#1a1b26" }
+
+[input]
+border   = { fg = "#7aa2f7" }
+title    = { fg = "#7aa2f7", bg = "#24283b", bold = true }
+value    = { fg = "#c0caf5" }
+selected = { fg = "#16161e", bg = "#e0af68" }
+
+[cmp]
+border     = { fg = "#7aa2f7" }
+active     = { fg = "#16161e", bg = "#7aa2f7", bold = true }
+inactive   = { fg = "#c0caf5", bg = "#1a1b26" }
+icon_file   = ""
+icon_folder = ""
+icon_command = ""
+
+[tasks]
+border  = { fg = "#7aa2f7" }
+title   = { fg = "#7aa2f7", bg = "#24283b", bold = true }
+hovered = { bg = "#283457" }
+
+[help]
+on     = { fg = "#7dcfff", bold = true }
+run    = { fg = "#bb9af7" }
+desc   = { fg = "#c0caf5" }
+hovered = { bg = "#283457" }
+footer = { fg = "#565f89" }
+icon_info  = "ℹ"
+icon_warn  = "⚠"
+icon_error = "✗"
+
+# File type colors. yazi matches these in order; later rules override
+# earlier ones for the same file. Keep `url = "*/"` near the top for
+# directories and `url = "*"` at the bottom as the catch-all.
+[filetype]
+rules = [
+  { url = "*/",        fg = "#7aa2f7" },
+  { url = "*", is = "exec",   fg = "#9ece6a" },
+  { mime = "image/*", fg = "#e0af68" },
+  { mime = "video/*", fg = "#bb9af7" },
+  { mime = "audio/*", fg = "#bb9af7" },
+  { mime = "application/{zip,tar,xz,bzip,gzip,7z-compressed}", fg = "#ff9e64" },
+  { url = "*", is = "link",   fg = "#7dcfff" },
+  { url = "*", is = "orphan", fg = "#f7768e" },
+  { url = "*", is = "hidden", fg = "#565f89" },
+  { url = "*", is = "sock",   fg = "#bb9af7" },
+  { url = "*", is = "fifo",   fg = "#bb9af7" },
+  { url = "*",        fg = "#c0caf5" },
+]
+
+# yazi-rs/plugins:git — colors and signs for git status indicators in
+# the file list. Enable with `programs.yazi.plugins.git` in the module.
+# Colors mirror nvim gitsigns defaults (green/yellow/red) and nvim-tree's
+# NvimTreeGitNew/NvimTreeGitDirty/NvimTreeGitDeleted (green/orange/red).
+[git]
+unknown  = { fg = "darkgray" }
+ignored  = { fg = "#545c7e" }
+untracked = { fg = "#9ece6a" }
+modified  = { fg = "#e0af68" }
+added     = { fg = "#9ece6a" }
+deleted   = { fg = "#f7768e" }
+updated   = { fg = "#e0af68" }
+clean     = { fg = "reset" }
+
+unknown_sign   = "  "
+ignored_sign   = "  "
+untracked_sign = "? "
+modified_sign  = "M "
+added_sign     = "+ "
+deleted_sign   = "✗ "
+updated_sign   = "M "
+clean_sign     = ""

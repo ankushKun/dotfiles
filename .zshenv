@@ -1,0 +1,10 @@
+# Environment for all zsh invocations (login and non-login).
+export EDITOR="nvim"
+export VISUAL="nvim"
+export LANG="en_US.UTF-8"
+export HOMEBREW_NO_AUTO_UPDATE="1"
+export HOMEBREW_NO_ENV_HINTS="1"
+export PNPM_HOME="$HOME/.local/share/pnpm"
+export NVM_DIR="$HOME/.nvm"
+
+export PATH="$HOME/.opencode/bin:$HOME/.cargo/bin:$HOME/go/bin:$HOME/.local/bin:/usr/local/sbin:$PNPM_HOME:$PATH"
