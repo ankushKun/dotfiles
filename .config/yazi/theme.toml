@@ -6,8 +6,6 @@ overall = { bg = "#101015" }
 [mgr]
 fg            = "#c0caf5"
 bg            = "#101015"
-hovered       = { fg = "#c0caf5", bg = "#283457" }
-selected      = { fg = "#c0caf5", bg = "#283457", bold = true }
 cwd           = { fg = "#7aa2f7", bold = true }
 find_keyword  = { fg = "#16161e", bg = "#7aa2f7", bold = true }
 find_position = { fg = "#7dcfff", bold = true }
@@ -27,10 +25,12 @@ border_style  = { fg = "#292e42" }
 
 syntect_theme = "~/.config/yazi/themes/tokyo-night.tmTheme"
 
+# Row highlight is patched from indicator.* (not [mgr].hovered in Yazi 26+).
+# Always set fg + bg so filetype colors (e.g. blue dirs) do not match the bar.
 [indicator]
-parent  = { bg = "#292e42" }
-current = { bg = "#7aa2f7" }
-preview = { bg = "#545c7e" }
+parent  = { fg = "#c0caf5", bg = "#292e42" }
+current = { fg = "#c0caf5", bg = "#283457", bold = true }
+preview = { fg = "#c0caf5", bg = "#283457", bold = true }
 padding = { open = "", close = "" }
 
 [tabs]
