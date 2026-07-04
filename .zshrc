@@ -1,3 +1,12 @@
+# Auto-start tmux in Kitty only. Set DOTFILES_TMUX=1 to enable elsewhere.
+# Must run before p10k instant prompt or the kitty window closes on attach.
+# Kitty does not set TERM_PROGRAM by default; KITTY_WINDOW_ID is always present.
+if [[ -z ${TMUX+X}${ZSH_SCRIPT+X}${ZSH_EXECUTION_STRING+X} ]] && command -v tmux &>/dev/null; then
+  if [[ "$TERM_PROGRAM" == "kitty" || -n "$KITTY_WINDOW_ID" || "$DOTFILES_TMUX" == 1 ]]; then
+    exec tmux new-session -A -s main
+  fi
+fi
+
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
@@ -83,10 +92,3 @@ npm() {
   [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
   npm "$@"
 }
-
-# Auto-start tmux in Kitty only. Set DOTFILES_TMUX=1 to enable elsewhere.
-if [[ -z "$TMUX" ]] && command -v tmux &>/dev/null; then
-  if [[ "$TERM_PROGRAM" == "kitty" || "$DOTFILES_TMUX" == 1 ]]; then
-    exec tmux new-session -A -s main
-  fi
-fi
