@@ -28,6 +28,10 @@ defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
 defaults write NSGlobalDomain com.apple.swipescrolldirection -bool false
 defaults write NSGlobalDomain com.apple.sound.beep.volume -float 0.7788008
 
+# Scroll bars
+defaults write NSGlobalDomain AppleShowScrollBars -string "WhenScrolling"
+defaults write NSGlobalDomain AppleScrollerPagingBehavior -int 1
+
 # Keyboard
 defaults write NSGlobalDomain KeyRepeat -int 1                    # fastest repeat rate
 defaults write NSGlobalDomain InitialKeyRepeat -int 10            # shortest delay until repeat
