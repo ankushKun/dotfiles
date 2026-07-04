@@ -47,7 +47,6 @@ Personal dotfiles repo for macOS (Apple Silicon). Not an application codebase �
 
 - Add Intel Mac `/usr/local` fallbacks unless explicitly requested.
 - Symlink `rectangle.json` — always copy it in `install.sh`.
-- Bundle font binaries — use the Brewfile cask.
 - Shadow `grep`/`find` with aliases in `.zshrc` — breaks scripts.
 - Auto-attach tmux in all terminals — Kitty only by default.
 - Commit secrets (.env, tokens, private keys). SSH private keys live in `~/.ssh/`, never in this repo.
