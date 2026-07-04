@@ -106,6 +106,13 @@ else
   fail "Neovim not found"
 fi
 
+# Zoxide
+if command -v zoxide &>/dev/null || [ -x /opt/homebrew/bin/zoxide ]; then
+  ok "Zoxide installed"
+else
+  fail "Zoxide not found"
+fi
+
 # Yazi
 if command -v yazi &>/dev/null || [ -x /opt/homebrew/bin/yazi ]; then
   ok "Yazi installed"

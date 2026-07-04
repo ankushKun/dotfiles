@@ -24,6 +24,7 @@ brew "unar"
 brew "eza"
 brew "yazi"
 brew "fzf"
+brew "zoxide"
 brew "tmux"
 brew "stow"
 
