@@ -210,3 +210,14 @@ if [ -f '/Users/weeblet/.cli/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/we
 
 # The next line enables shell command completion for gcloud.
 if [ -f '/Users/weeblet/.cli/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/weeblet/.cli/google-cloud-sdk/completion.zsh.inc'; fi
+
+# Hermes Agent — ensure ~/.local/bin is on PATH
+export PATH="$HOME/.local/bin:$PATH"
+
+# pnpm
+export PNPM_HOME="/Users/weeblet/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME/bin:"*) ;;
+  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
+esac
+# pnpm end

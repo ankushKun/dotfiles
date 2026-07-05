@@ -2,7 +2,8 @@
 \.gitignore
 \.stow-local-ignore
 \.DS_Store
-\.config/\.DS_Store
+\\.config/\\.DS_Store
+node_modules
 README.*
 LICENSE.*
 COPYING

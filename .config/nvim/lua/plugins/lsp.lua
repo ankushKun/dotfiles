@@ -251,7 +251,7 @@ return {
 					javascriptreact = { "prettierd", "prettier", stop_after_first = true },
 					typescriptreact = { "prettierd", "prettier", stop_after_first = true },
 					json = { "prettierd", "prettier", stop_after_first = true },
-					jsonc = { "prettierd", "prettier", stop_after_first = true },
+					jsonc = { "prettierd_jsonc", "prettier_jsonc", stop_after_first = true },
 					yaml = { "prettierd", "prettier", stop_after_first = true },
 					html = { "prettierd", "prettier", stop_after_first = true },
 					css = { "prettierd", "prettier", stop_after_first = true },
@@ -261,6 +261,16 @@ return {
 					bash = { "shfmt" },
 					go = { "gofmt" },
 					rust = { "rustfmt" },
+				},
+				formatters = {
+					prettierd_jsonc = {
+						command = "prettierd",
+						args = { "$FILENAME", "--trailing-comma", "none" },
+					},
+					prettier_jsonc = {
+						command = "prettier",
+						args = { "--trailing-comma", "none", "--stdin-filepath", "$FILENAME" },
+					},
 				},
 				format_on_save = function(bufnr)
 					local autoformat = vim.b[bufnr].autoformat

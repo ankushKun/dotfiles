@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "xai": {
+      "models": {
+        "grok-composer-2.5-fast": {
+          "name": "Composer 2.5 Fast"
+        },
+        "grok-build-0.1": {
+          "name": "Grok Build"
+        }
+      }
+    }
+  }
+}
