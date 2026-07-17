@@ -1,0 +1,69 @@
+{
+  "$schema": "https://raw.githubusercontent.com/manaflow-ai/cmux/main/web/data/cmux.schema.json",
+  "schemaVersion": 1,
+
+  "app": {
+    "appearance": "dark",
+    // Keep false: minimalMode relocates workspaces into a top tab strip,
+    // which looks like "new tab" instead of a left-sidebar workspace list.
+    "minimalMode": false,
+    "workspaceInheritWorkingDirectory": true,
+    "newWorkspacePlacement": "afterCurrent",
+    "hideTabCloseButton": true,
+    // Cmd+W on last surface → spawn replacement instead of quitting.
+    // Ctrl+D / shell exit can still close the workspace (cmux#4155).
+    "keepWorkspaceOpenWhenClosingLastSurface": true
+  },
+
+  "terminal": {
+    "showScrollBar": false,
+    "copyOnSelect": true,
+    "showTextBoxOnNewTerminals": false,
+    "focusTextBoxOnNewTerminals": false
+  },
+
+  "sidebar": {
+    "hideAllDetails": true,
+    "wrapWorkspaceTitles": true
+  },
+
+  "sidebarAppearance": {
+    "matchTerminalBackground": true,
+    "darkModeTintColor": "#101015",
+    "tintOpacity": 0.08
+  },
+
+  "workspaceColors": {
+    "indicatorStyle": "leftRail",
+    "selectionColor": "#283457",
+    "colors": {
+      "Blue": "#7aa2f7",
+      "Cyan": "#7dcfff",
+      "Green": "#9ece6a",
+      "Yellow": "#e0af68",
+      "Orange": "#ff9e64",
+      "Red": "#f7768e",
+      "Purple": "#bb9af7",
+      "Surface": "#15161e",
+      "Muted": "#545c7e"
+    }
+  },
+
+  "browser": {
+    "openTerminalLinksInCmuxBrowser": true,
+    "hostsToOpenInEmbeddedBrowser": ["localhost", "127.0.0.1"]
+  },
+
+  "shortcuts": {
+    "bindings": {
+      "focusLeft": "cmd+left",
+      "focusRight": "cmd+right",
+      "focusUp": "cmd+up",
+      "focusDown": "cmd+down",
+      // New workspace in the left sidebar (not a surface tab)
+      "newTab": "cmd+n",
+      // New surface/tab inside the current workspace
+      "newSurface": "cmd+t"
+    }
+  }
+}

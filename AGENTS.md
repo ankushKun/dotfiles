@@ -17,6 +17,8 @@ Personal dotfiles repo for macOS (Apple Silicon). Not an application codebase �
 │   ├── git/config              # pull.rebase = true
 │   ├── pnpm/config.yaml        # global pnpm supply chain settings
 │   ├── kitty/
+│   ├── ghostty/                # cmux terminal look (Tokyo Night + miku)
+│   ├── cmux/                   # cmux.json app settings
 │   ├── nvim/
 │   │   ├── init.lua            # thin entry (requires config/*)
 │   │   ├── lazy-lock.json
@@ -73,9 +75,10 @@ After editing nvim config: `nvim --headless +"Lazy! sync" +qa`
 ## Conventions
 
 - **Apple Silicon only** — Homebrew paths use `/opt/homebrew`.
-- **Theming** — Tokyo Night; base bg `#101015` across kitty, yazi, nvim.
+- **Theming** — Tokyo Night; base bg `#101015` across kitty, yazi, nvim, ghostty/cmux (miku wallpaper in ghostty).
 - **Fonts** — `MesloLGS NF` bundled in `Library/Fonts/` from powerlevel10k-media.
-- **Tmux** — Auto-starts only in Kitty (`TERM_PROGRAM=kitty`) or `DOTFILES_TMUX=1`.
+- **Tmux** — Auto-starts only in Kitty (`TERM_PROGRAM=kitty`) or `DOTFILES_TMUX=1`. cmux uses Ghostty env and does not auto-attach.
+- **cmux** — Terminal look in `.config/ghostty/`; app settings in `.config/cmux/cmux.json`. Reload: `cmux reload-config`. CLI: `/Applications/cmux.app/Contents/Resources/bin` (on PATH via `.zshenv`).
 - **Yazi** — 3-pane ratio `[1, 3, 4]`; built-in `size` linemode; git plugin vendored.
 - **Git** — `pull.rebase = true` in stowed git config.
 - **Node supply chain** — 10-day release cooldown on npm/pnpm/yarn/bun; pnpm blocks dep lifecycle scripts unless `allowBuilds` permits. See [Node supply chain security](#node-supply-chain-security-layer-12).

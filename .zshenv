@@ -8,7 +8,7 @@ export XDG_CONFIG_HOME="$HOME/.config"
 export PNPM_HOME="$HOME/.local/share/pnpm"
 export NVM_DIR="$HOME/.nvm"
 
-export PATH="$HOME/.opencode/bin:$HOME/.cargo/bin:$HOME/go/bin:$HOME/.local/bin:/usr/local/sbin:$PNPM_HOME:$PATH"
+export PATH="/Applications/cmux.app/Contents/Resources/bin:$HOME/.opencode/bin:$HOME/.cargo/bin:$HOME/go/bin:$HOME/.local/bin:/usr/local/sbin:$PNPM_HOME:$PATH"
 
 # Cursor agent terminals call this after each command to capture shell state.
 # Stub it to avoid "command not found" noise (harmless elsewhere).

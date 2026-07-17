@@ -1,0 +1,62 @@
+# weeblet — kitty Tokyo Night + miku
+# cmux reads ~/.config/ghostty/config (reload: cmux reload-config)
+
+font-family = MesloLGS NF
+font-family-bold = MesloLGS NF
+font-family-italic = MesloLGS NF
+font-family-bold-italic = MesloLGS NF
+font-size = 14
+sidebar-font-size = 13
+surface-tab-bar-font-size = 11
+
+theme = TokyoNight Night
+background = #101015
+foreground = #c0caf5
+cursor-color = #c0caf5
+cursor-text = #1a1b26
+selection-background = #283457
+selection-foreground = #c0caf5
+
+# kitty: opacity 0.85, blur 35 (image deferred — see below)
+background-opacity = 0.85
+background-blur = 35
+
+# miku wallpaper: Ghostty/cmux applies background-image per-terminal, so it
+# duplicates across every split. Re-enable when a window-global background
+# option lands (ghostty-org/ghostty#10052). Keep miku.png next to this config.
+# background-image = ~/.config/ghostty/miku.png
+# background-image-fit = cover
+# background-image-position = center
+# background-image-opacity = 0.95  # ≈ kitty background_tint 0.05
+
+unfocused-split-opacity = 0.6
+split-divider-color = #292e42
+
+cursor-style = block
+cursor-style-blink = false
+# Keep block everywhere — shell integration otherwise forces a bar at the prompt
+shell-integration-features = no-cursor
+copy-on-select = clipboard
+scrollback-limit = 50000000
+window-padding-x = 0
+window-padding-y = 0
+working-directory = ~/Developer
+mouse-hide-while-typing = true
+
+# zsh emacs word motion (matches kitty alt+left/right) — Ghostty→PTY only
+keybind = alt+left=text:\x1bb
+keybind = alt+right=text:\x1bf
+keybind = alt+backspace=text:\x1b\x7f
+keybind = alt+up=text:\x1b[A
+keybind = alt+down=text:\x1b[B
+
+# OpenCode / TUI newline — Ghostty already emits CSI-u natively; forcing
+# text:\x1b[13;2u via keybind mangles to literal "3;2u" garbage. Send \n.
+keybind = shift+enter=text:\n
+keybind = ctrl+enter=text:\n
+
+# Pane resize — matches kitty→tmux Ctrl+Shift+arrows (Ghostty resize_split)
+keybind = ctrl+shift+left=resize_split:left
+keybind = ctrl+shift+right=resize_split:right
+keybind = ctrl+shift+up=resize_split:up
+keybind = ctrl+shift+down=resize_split:down
