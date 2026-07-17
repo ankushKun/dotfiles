@@ -189,7 +189,7 @@ portkill() {
   fi
 }
 
-__ask_cmd() { opencode run --model "opencode/deepseek-v4-flash-free" "$*" 2>/dev/null | glow -s tokyo-night -w 0 -; }
+__ask_cmd() { opencode run --model "opencode/deepseek-v4-flash-free" "$*" | glow -s tokyo-night -w 0 -; }
 alias ask='noglob __ask_cmd'
 
 # Lazy-load NVM (only load when needed to speed up shell startup)
