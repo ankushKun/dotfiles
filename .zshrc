@@ -174,6 +174,7 @@ alias gco='git checkout'
 alias gb='git branch'
 alias lg='lazygit'
 alias files='yazi'
+alias f='yazi'
 alias zshconfig='nvim ~/.zshrc'
 alias icloud='cd ~/Library/Mobile\ Documents/com~apple~CloudDocs'
 
@@ -187,6 +188,9 @@ portkill() {
     echo "No process found on port $1"
   fi
 }
+
+__ask_cmd() { opencode run --model "opencode/deepseek-v4-flash-free" "$*" 2>/dev/null | glow -s tokyo-night -w 0 -; }
+alias ask='noglob __ask_cmd'
 
 # Lazy-load NVM (only load when needed to speed up shell startup)
 nvm() {
@@ -221,3 +225,9 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME/bin:$PATH" ;;
 esac
 # pnpm end
+
+# >>> grok installer >>>
+export PATH="$HOME/.grok/bin:$PATH"
+fpath=(~/.grok/completions/zsh $fpath)
+autoload -Uz compinit && compinit -C
+# <<< grok installer <<<
