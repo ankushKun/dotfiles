@@ -10,7 +10,16 @@ fi
 # Greeting — must run before p10k instant prompt (stdout after it corrupts the prompt)
 # Tokyo Night blue (#7aa2f7); truncate to $COLUMNS; if too narrow for the
 # right-side "Hi weeblet", overlay it 3 lines into the art on the left.
+#
+# cmux session restore replays the last scrollback (including this greeting +
+# prompt) before .zshrc runs, which otherwise stacks a second copy on relaunch.
+# Clear the viewport first so only one greeting is visible; older lines remain
+# in scrollback above.
 if [[ -o interactive && -t 1 && -r "$HOME/ascii.txt" ]]; then
+  if [[ -n ${CMUX_DID_RESTORE_SCROLLBACK-} ]]; then
+    unset CMUX_DID_RESTORE_SCROLLBACK
+    printf '\033[H\033[2J'
+  fi
   () {
     emulate -L zsh
     setopt extendedglob

@@ -13,3 +13,9 @@ export PATH="/Applications/cmux.app/Contents/Resources/bin:$HOME/.opencode/bin:$
 # Cursor agent terminals call this after each command to capture shell state.
 # Stub it to avoid "command not found" noise (harmless elsewhere).
 dump_zsh_state() { :; }
+
+# cmux sets this before shell init when replaying prior scrollback on relaunch.
+# Stash a flag here — cmux unsets the path once it cats the file (after .zshenv).
+if [[ -n ${CMUX_RESTORE_SCROLLBACK_FILE-} ]]; then
+  export CMUX_DID_RESTORE_SCROLLBACK=1
+fi
