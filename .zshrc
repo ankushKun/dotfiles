@@ -7,6 +7,55 @@ if [[ -z ${TMUX+X}${ZSH_SCRIPT+X}${ZSH_EXECUTION_STRING+X} ]] && command -v tmux
   fi
 fi
 
+# Greeting — must run before p10k instant prompt (stdout after it corrupts the prompt)
+# Tokyo Night blue (#7aa2f7); truncate to $COLUMNS; if too narrow for the
+# right-side "Hi weeblet", overlay it 3 lines into the art on the left.
+if [[ -o interactive && -t 1 && -r "$HOME/ascii.txt" ]]; then
+  () {
+    emulate -L zsh
+    setopt extendedglob
+    local cols=${COLUMNS:-80} line hi='Hi weeblet' need_left=0 i=1
+    local art_start=1 hi_at=1 inject lead rest
+    local -a lines
+    lines=("${(@f)$(<"$HOME/ascii.txt")}")
+
+    for line in "$lines[@]"; do
+      (( ${#line} > cols )) && need_left=1 && break
+    done
+
+    if (( need_left )); then
+      for (( i = 1; i <= ${#lines}; i++ )); do
+        [[ -n ${${lines[i]}//[[:blank:]]/} ]] && { art_start=$i; break }
+      done
+      hi_at=$(( art_start + 3 ))
+      i=1
+    fi
+
+    print -rn -- $'\e[38;2;122;162;247m'
+    for line in "$lines[@]"; do
+      if (( need_left )); then
+        if [[ $line == *"$hi" ]]; then
+          line=${line%"$hi"}
+          line=${line%%[[:blank:]]#}
+        fi
+        if (( i == hi_at )); then
+          inject="    $hi"
+          rest=${line##[[:blank:]]#}
+          lead=${line%$rest}
+          if (( ${#inject} <= ${#lead} )); then
+            line="${inject}${lead[$((${#inject} + 1)),${#lead}]}${rest}"
+          else
+            line="${inject} ${rest}"
+          fi
+        fi
+      fi
+      print -r -- "${line[1,cols]}"
+      (( i++ ))
+    done
+    print -rn -- $'\e[0m'
+  }
+fi
+
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
