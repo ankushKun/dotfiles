@@ -4,7 +4,7 @@
   "skills": {
     "paths": ["~/.local/share/agent-skills/skills"]
   },
-  "plugin": ["@dietrichgebert/ponytail"],
+  "plugin": ["@dietrichgebert/ponytail", "opencode-codebase-index"],
   "provider": {
     "xai": {
       "models": {
