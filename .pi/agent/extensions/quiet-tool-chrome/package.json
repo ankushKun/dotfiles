@@ -1,0 +1,8 @@
+{
+  "name": "quiet-tool-chrome",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": ["./index.ts"]
+  }
+}

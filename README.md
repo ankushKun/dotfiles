@@ -30,6 +30,10 @@ Run `make help` for all targets.
 
 Install prints your public key for [GitHub SSH settings](https://github.com/settings/ssh/new). After adding it, setup offers switching the dotfiles remote to `git@github.com:ankushKun/dotfiles.git`.
 
+## Pi
+
+Allowlisted `~/.pi` config lives under [`.pi/`](.pi/) and is stowed into `$HOME`. Live `settings.json`, `auth.json`, sessions, npm installs, and memory DBs stay local-only. See [AGENTS.md](AGENTS.md#pi-pi) for the allowlist/denylist and fresh-machine steps.
+
 ## More detail
 
 See [AGENTS.md](AGENTS.md) for repo layout, conventions, and Neovim module structure.

@@ -1,0 +1,32 @@
+{
+  "tui.input.newLine": ["shift+enter", "ctrl+j", "alt+enter"],
+  "tui.input.submit": "enter",
+  "tui.select.up": ["up", "ctrl+p"],
+  "tui.select.down": ["down", "ctrl+n"],
+  "tui.editor.deleteWordBackward": ["ctrl+w", "ctrl+backspace", "alt+backspace"],
+
+  "app.session.new": "ctrl+n",
+  "app.session.resume": "ctrl+l",
+  "app.session.tree": "ctrl+shift+g",
+  "app.session.fork": "ctrl+shift+f",
+  "app.session.togglePath": "ctrl+shift+p",
+  "app.session.toggleNamedFilter": "alt+n",
+
+  "app.model.select": "ctrl+/",
+  "app.model.cycleForward": "f2",
+  "app.model.cycleBackward": "shift+f2",
+
+  "app.thinking.cycle": "alt+shift+tab",
+  "app.thinking.toggle": "ctrl+t",
+
+  "app.message.followUp": "ctrl+enter",
+  "app.message.dequeue": "alt+up",
+  "app.message.copy": "ctrl+shift+c",
+
+  "app.tools.expand": "ctrl+o",
+  "app.editor.external": "ctrl+g",
+
+  "app.interrupt": "escape",
+  "app.clear": "ctrl+c",
+  "app.exit": "ctrl+d"
+}

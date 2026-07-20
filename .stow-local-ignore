@@ -11,5 +11,7 @@ scripts
 bootstrap\.sh
 Brewfile
 rectangle\.json
-AGENTS\.md
+# Repo-root only (path-anchored). Do not use bare AGENTS\.md — that also
+# blocks ~/.pi/agent/AGENTS.md from being stowed.
+^/AGENTS\.md$
 Makefile

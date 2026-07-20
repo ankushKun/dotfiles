@@ -2,3 +2,21 @@
 *.swp
 *.swo
 *~
+
+# Pi: never commit secrets or runtime data if copied into the tree by mistake
+.pi/agent/auth.json
+.pi/agent/settings.json
+.pi/agent/trust.json
+.pi/agent/telemetry.json
+.pi/agent/models-store.json
+.pi/agent/cursor-sdk-context-windows.json
+.pi/agent/pi-crash.log
+.pi/agent/.pi-hermes-locks.sqlite
+.pi/agent/**/*.sqlite
+.pi/agent/**/*.sqlite-*
+.pi/agent/sessions/
+.pi/agent/npm/
+.pi/agent/cache/
+.pi/agent/pi-hermes-memory/
+.pi/agent/projects-memory/
+.pi/agent/ayu/

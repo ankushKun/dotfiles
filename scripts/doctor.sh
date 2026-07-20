@@ -214,6 +214,47 @@ else
   warn "Corepack not available — run: corepack enable"
 fi
 
+# Pi coding-agent config
+echo ""
+echo "==> Pi (~/.pi)"
+
+check_symlink "$HOME/.pi/ascii.txt"
+check_symlink "$HOME/.pi/eyes.txt"
+check_symlink "$HOME/.pi/miku.txt"
+check_symlink "$HOME/.pi/agent/AGENTS.md"
+check_symlink "$HOME/.pi/agent/APPEND_SYSTEM.md"
+check_symlink "$HOME/.pi/agent/keybindings.json"
+check_symlink "$HOME/.pi/agent/settings.example.json"
+# Stow may link whole dirs (themes/, agents/, extensions/*/) rather than each file.
+check_symlink "$HOME/.pi/agent/themes"
+check_symlink "$HOME/.pi/agent/agents"
+check_symlink "$HOME/.pi/agent/extensions/plan-mode"
+check_symlink "$HOME/.pi/agent/extensions/quiet-tool-chrome"
+check_symlink "$HOME/.pi/agent/extensions/tokyonight-chrome.ts"
+
+check_pi_local() {
+  local path="$1"
+  local label="${2:-$path}"
+  if [ -L "$path" ] && readlink "$path" | grep -q ".dotfiles"; then
+    fail "Should be local-only (not stowed): $label"
+  elif [ -e "$path" ]; then
+    ok "Local-only OK: $label"
+  else
+    warn "Missing local file (expected after first pi run): $label"
+  fi
+}
+
+check_pi_local "$HOME/.pi/agent/auth.json" "auth.json (secrets)"
+check_pi_local "$HOME/.pi/agent/settings.json" "settings.json"
+check_pi_local "$HOME/.pi/agent/sessions" "sessions/"
+check_pi_local "$HOME/.pi/agent/npm" "npm/"
+
+if [ -e "$DOTFILES/.pi/agent/auth.json" ] || [ -e "$DOTFILES/.pi/agent/settings.json" ]; then
+  fail "Secrets/local settings present under $DOTFILES/.pi/agent/ (remove before commit)"
+else
+  ok "No auth.json/settings.json in dotfiles .pi tree"
+fi
+
 echo ""
 if [ "$errors" -eq 0 ]; then
   printf "  \033[1;32mAll critical checks passed.\033[0m"

@@ -1,0 +1,68 @@
+{
+  "lastChangelogVersion": "0.80.10",
+  "theme": "tokyo-night",
+  "defaultThinkingLevel": "high",
+  "editorPaddingX": 1,
+  "outputPad": 1,
+  "autocompleteMaxVisible": 10,
+  "doubleEscapeAction": "tree",
+  "treeFilterMode": "no-tools",
+  "steeringMode": "one-at-a-time",
+  "followUpMode": "all",
+  "transport": "auto",
+  "hideThinkingBlock": false,
+  "terminal": {
+    "showImages": true,
+    "imageWidthCells": 64,
+    "clearOnShrink": true,
+    "showTerminalProgress": true
+  },
+  "images": {
+    "autoResize": true,
+    "blockImages": false
+  },
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 16384,
+    "keepRecentTokens": 24000
+  },
+  "branchSummary": {
+    "reserveTokens": 16384,
+    "skipPrompt": false
+  },
+  "retry": {
+    "enabled": true,
+    "maxRetries": 4,
+    "baseDelayMs": 1500,
+    "provider": {
+      "maxRetries": 0,
+      "maxRetryDelayMs": 60000
+    }
+  },
+  "extensions": [
+    "$HOME/.pi/agent/extensions/plan-mode/index.ts",
+    "$HOME/.local/lib/node_modules/@earendil-works/pi-coding-agent/examples/extensions/subagent/index.ts",
+    "$HOME/.local/lib/node_modules/@earendil-works/pi-coding-agent/examples/extensions/questionnaire.ts"
+  ],
+  "enableSkillCommands": true,
+  "defaultProjectTrust": "ask",
+  "collapseChangelog": true,
+  "quietStartup": true,
+  "defaultProvider": "cursor",
+  "defaultModel": "grok-4.5",
+  "packages": [
+    "$HOME/.pi/agent/extensions/quiet-tool-chrome",
+    "npm:pi-web-access",
+    "npm:@hypabolic/pi-hypa",
+    "npm:@ayulab/pi-rewind",
+    "npm:@narumitw/pi-lsp",
+    "npm:pi-hermes-memory",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:pi-tool-display",
+    "npm:@ff-labs/pi-fff",
+    "npm:pi-simplify",
+    "npm:@plannotator/pi-extension",
+    "npm:@spences10/pi-telemetry",
+    "npm:pi-cursor-sdk"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "enableNativeUserMessageBox": false,
+  "registerToolOverrides": {
+    "read": true,
+    "grep": false,
+    "find": false,
+    "ls": true,
+    "bash": true,
+    "edit": true,
+    "write": true
+  },
+  "readOutputMode": "hidden",
+  "searchOutputMode": "count",
+  "mcpOutputMode": "summary",
+  "bashOutputMode": "summary",
+  "previewLines": 6,
+  "bashCollapsedLines": 6,
+  "diffViewMode": "unified",
+  "showTruncationHints": false,
+  "showRtkCompactionHints": false
+}
