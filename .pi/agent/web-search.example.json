@@ -1,0 +1,9 @@
+# Copy to ~/.pi/web-search.json and fill keys you use.
+# pi-web-access works with zero-config Exa; keys improve reliability/fallbacks.
+{
+  "braveApiKey": "",
+  "exaApiKey": "",
+  "openaiApiKey": "",
+  "perplexityApiKey": "",
+  "geminiApiKey": ""
+}

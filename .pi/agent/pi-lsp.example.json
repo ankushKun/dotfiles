@@ -1,0 +1,31 @@
+{
+  "timeout": 30000,
+  "servers": {
+    "biome": {
+      "command": ["biome", "lsp-proxy"],
+      "extensions": [
+        ".astro", ".css", ".graphql", ".gql", ".html",
+        ".js", ".cjs", ".mjs", ".jsx",
+        ".json", ".jsonc",
+        ".ts", ".cts", ".mts", ".tsx",
+        ".vue", ".svelte"
+      ]
+    },
+    "typescript": {
+      "command": ["typescript-language-server", "--stdio"],
+      "extensions": [".ts", ".tsx", ".cts", ".mts", ".js", ".jsx", ".cjs", ".mjs"]
+    },
+    "pyright": {
+      "command": ["pyright-langserver", "--stdio"],
+      "extensions": [".py", ".pyi"]
+    },
+    "rust-analyzer": {
+      "command": ["rust-analyzer"],
+      "extensions": [".rs"]
+    },
+    "clangd": {
+      "command": ["clangd", "--background-index", "--clang-tidy"],
+      "extensions": [".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx", ".m", ".mm"]
+    }
+  }
+}

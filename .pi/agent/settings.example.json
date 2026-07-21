@@ -40,7 +40,7 @@
     }
   },
   "extensions": [
-    "$HOME/.pi/agent/extensions/plan-mode/index.ts",
+    "$HOME/.pi/agent/extensions/single-todo-widget.ts",
     "$HOME/.local/lib/node_modules/@earendil-works/pi-coding-agent/examples/extensions/subagent/index.ts",
     "$HOME/.local/lib/node_modules/@earendil-works/pi-coding-agent/examples/extensions/questionnaire.ts"
   ],

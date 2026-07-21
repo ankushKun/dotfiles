@@ -225,12 +225,28 @@ check_symlink "$HOME/.pi/agent/AGENTS.md"
 check_symlink "$HOME/.pi/agent/APPEND_SYSTEM.md"
 check_symlink "$HOME/.pi/agent/keybindings.json"
 check_symlink "$HOME/.pi/agent/settings.example.json"
-# Stow may link whole dirs (themes/, agents/, extensions/*/) rather than each file.
+check_symlink "$HOME/.pi/agent/pi-lsp.example.json"
+check_symlink "$HOME/.pi/agent/web-search.example.json"
+# Stow may link whole dirs (themes/, agents/, archive/, plans/) or per-file under extensions/.
 check_symlink "$HOME/.pi/agent/themes"
 check_symlink "$HOME/.pi/agent/agents"
-check_symlink "$HOME/.pi/agent/extensions/plan-mode"
+check_symlink "$HOME/.pi/agent/archive"
+check_symlink "$HOME/.pi/agent/plans"
 check_symlink "$HOME/.pi/agent/extensions/quiet-tool-chrome"
 check_symlink "$HOME/.pi/agent/extensions/tokyonight-chrome.ts"
+check_symlink "$HOME/.pi/agent/extensions/permission-gate.ts"
+check_symlink "$HOME/.pi/agent/extensions/single-todo-widget.ts"
+check_symlink "$HOME/.pi/agent/extensions/notify.ts"
+check_symlink "$HOME/.pi/agent/extensions/handoff.ts"
+check_symlink "$HOME/.pi/agent/extensions/code-compaction.ts"
+# Archived plan-mode must not be active under extensions/ (lives inside stowed archive/)
+if [ -e "$HOME/.pi/agent/extensions/plan-mode" ]; then
+  fail "plan-mode still under extensions/ (should live in archive/ only)"
+elif [ -d "$HOME/.pi/agent/archive/plan-mode" ] && [ -L "$HOME/.pi/agent/archive" ]; then
+  ok "plan-mode archived under stowed archive/"
+else
+  fail "plan-mode missing from stowed archive/ (run: make stow)"
+fi
 
 check_pi_local() {
   local path="$1"
@@ -246,13 +262,16 @@ check_pi_local() {
 
 check_pi_local "$HOME/.pi/agent/auth.json" "auth.json (secrets)"
 check_pi_local "$HOME/.pi/agent/settings.json" "settings.json"
+check_pi_local "$HOME/.pi/agent/pi-lsp.json" "pi-lsp.json"
 check_pi_local "$HOME/.pi/agent/sessions" "sessions/"
 check_pi_local "$HOME/.pi/agent/npm" "npm/"
+check_pi_local "$HOME/.pi/agent/pi-hermes-memory" "pi-hermes-memory/"
+check_pi_local "$HOME/.pi/agent/cache" "cache/"
 
-if [ -e "$DOTFILES/.pi/agent/auth.json" ] || [ -e "$DOTFILES/.pi/agent/settings.json" ]; then
+if [ -e "$DOTFILES/.pi/agent/auth.json" ] || [ -e "$DOTFILES/.pi/agent/settings.json" ] || [ -e "$DOTFILES/.pi/agent/pi-lsp.json" ]; then
   fail "Secrets/local settings present under $DOTFILES/.pi/agent/ (remove before commit)"
 else
-  ok "No auth.json/settings.json in dotfiles .pi tree"
+  ok "No auth.json/settings.json/pi-lsp.json in dotfiles .pi tree"
 fi
 
 echo ""

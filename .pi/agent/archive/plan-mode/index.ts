@@ -9,7 +9,8 @@
  * - Bash restricted to allowlisted read-only commands
  * - Extracts numbered plan steps from "Plan:" sections
  * - [DONE:n] markers to complete steps during execution
- * - Progress tracking widget during execution
+ * - Compact footer status during execution (no second Todos widget —
+ *   task UI lives in @juicesharp/rpiv-todo only)
  */
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
@@ -57,7 +58,7 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 	});
 
 	function updateStatus(ctx: ExtensionContext): void {
-		// Footer status
+		// Footer status only — do not set a plan-todos widget (duplicates rpiv-todo).
 		if (executionMode && todoItems.length > 0) {
 			const completed = todoItems.filter((t) => t.completed).length;
 			ctx.ui.setStatus("plan-mode", ctx.ui.theme.fg("accent", `📋 ${completed}/${todoItems.length}`));
@@ -66,21 +67,7 @@ export default function planModeExtension(pi: ExtensionAPI): void {
 		} else {
 			ctx.ui.setStatus("plan-mode", undefined);
 		}
-
-		// Widget showing todo list
-		if (executionMode && todoItems.length > 0) {
-			const lines = todoItems.map((item) => {
-				if (item.completed) {
-					return (
-						ctx.ui.theme.fg("success", "☑ ") + ctx.ui.theme.fg("muted", ctx.ui.theme.strikethrough(item.text))
-					);
-				}
-				return `${ctx.ui.theme.fg("muted", "☐ ")}${item.text}`;
-			});
-			ctx.ui.setWidget("plan-todos", lines);
-		} else {
-			ctx.ui.setWidget("plan-todos", undefined);
-		}
+		ctx.ui.setWidget("plan-todos", undefined);
 	}
 
 	function uniqueToolNames(toolNames: string[]): string[] {
@@ -265,9 +252,10 @@ After completing a step, include a [DONE:n] tag in your response.`,
 			if (todoItems.every((t) => t.completed)) {
 				const completedList = todoItems.map((t) => `~~${t.text}~~`).join("\n");
 				pi.sendMessage(
-					{ customType: "plan-complete", content: `**Plan Complete!** ✓\n\n${completedList}`, display: true },
+					{ customType: "plan-complete", content: `**Plan Complete!** ✓\n\n${completedList}`, display: false },
 					{ triggerTurn: false },
 				);
+				ctx.ui.notify("Plan complete", "success");
 				executionMode = false;
 				todoItems = [];
 				updateStatus(ctx);
@@ -290,12 +278,12 @@ After completing a step, include a [DONE:n] tag in your response.`,
 		if (todoItems.length === 0) return;
 		persistState();
 
-		// Show plan steps and prompt for next action
-		const todoListText = todoItems.map((t, i) => `${i + 1}. ☐ ${t.text}`).join("\n");
+		// Keep plan steps for follow-up context, but do not paint a second checklist UI.
+		const todoListText = todoItems.map((t, i) => `${i + 1}. ${t.text}`).join("\n");
 		const planTodoListMessage = {
 			customType: "plan-todo-list",
-			content: `**Plan Steps (${todoItems.length}):**\n\n${todoListText}`,
-			display: true,
+			content: `Plan steps (${todoItems.length}):\n\n${todoListText}`,
+			display: false,
 		};
 
 		const choice = await ctx.ui.select("Plan mode - what next?", [

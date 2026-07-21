@@ -7,6 +7,8 @@ export HOMEBREW_NO_ENV_HINTS="1"
 export XDG_CONFIG_HOME="$HOME/.config"
 export PNPM_HOME="$HOME/.local/share/pnpm"
 export NVM_DIR="$HOME/.nvm"
+# FFF replaces built-in find/grep (survives pi-fff package updates)
+export PI_FFF_MODE="override"
 
 export PATH="/Applications/cmux.app/Contents/Resources/bin:$HOME/.opencode/bin:$HOME/.cargo/bin:$HOME/go/bin:$HOME/.local/bin:/usr/local/sbin:$PNPM_HOME:$PATH"
 
@@ -19,3 +21,4 @@ dump_zsh_state() { :; }
 if [[ -n ${CMUX_RESTORE_SCROLLBACK_FILE-} ]]; then
   export CMUX_DID_RESTORE_SCROLLBACK=1
 fi
+. "$HOME/.cargo/env"

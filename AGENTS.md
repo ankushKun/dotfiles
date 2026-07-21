@@ -63,9 +63,13 @@ Stow allowlists config only. Runtime data and secrets stay as real files under `
 | `~/.pi/agent/AGENTS.md`, `APPEND_SYSTEM.md` | Global agent rules |
 | `~/.pi/agent/keybindings.json` | Keybindings |
 | `~/.pi/agent/themes/` | Themes (tokyo-night) |
-| `~/.pi/agent/agents/*.md` | Subagent prompts |
-| `~/.pi/agent/extensions/` | Local extension source + `pi-tool-display/config.json` |
-| `~/.pi/agent/settings.example.json` | Settings template |
+| `~/.pi/agent/agents/*.md` | Subagent prompts (scout, planner, reviewer, debugger, worker, tester, security) |
+| `~/.pi/agent/extensions/` | Local extensions (notify, handoff, code-compaction, permission-gate, chrome, etc.) |
+| `~/.pi/agent/archive/` | Disabled extensions kept for history (e.g. old plan-mode) |
+| `~/.pi/agent/plans/` | Extension/feature plans |
+| `~/.pi/agent/settings.example.json` | Settings template (copy → local `settings.json`) |
+| `~/.pi/agent/pi-lsp.example.json` | LSP server map template (copy → local `pi-lsp.json`) |
+| `~/.pi/agent/web-search.example.json` | Web search keys template (copy → `~/.pi/web-search.json`) |
 | `~/.pi/agent/prompts/.gitkeep` | Prompts dir marker |
 
 **Local-only (do not commit / do not stow):**
@@ -73,7 +77,9 @@ Stow allowlists config only. Runtime data and secrets stay as real files under `
 | Path | Why |
 | `agent/auth.json` | API keys / provider secrets |
 | `agent/settings.json` | Machine-local settings (copy from example) |
-| `agent/trust.json`, `telemetry.json`, `models-store.json`, `cursor-sdk-context-windows.json` | Machine / session state |
+| `agent/pi-lsp.json` | Machine-local LSP routes (copy from example) |
+| `~/.pi/web-search.json` | Search API keys (copy from example) |
+| `agent/trust.json`, `telemetry.json`, `models-store.json`, `cursor-sdk-*.json` | Machine / session state |
 | `agent/sessions/`, `agent/npm/`, `agent/cache/` | Conversations, installs, caches |
 | `agent/pi-hermes-memory/`, `agent/projects-memory/`, `*.sqlite*` | Memory DBs / indexes |
 | `agent/ayu/`, `agent/pi-crash.log` | Checkpoints / logs |
@@ -82,8 +88,9 @@ Stow allowlists config only. Runtime data and secrets stay as real files under `
 
 1. `make stow`
 2. `cp ~/.pi/agent/settings.example.json ~/.pi/agent/settings.json` and expand `$HOME` paths to absolute paths
-3. Re-auth providers so `auth.json` is recreated (never restore secrets from backup into git)
-4. Launch pi so npm packages reinstall from the `packages` list
+3. Optionally copy `pi-lsp.example.json` → `pi-lsp.json` and `web-search.example.json` → `~/.pi/web-search.json`
+4. Re-auth providers so `auth.json` is recreated (never restore secrets from backup into git)
+5. Launch pi so npm packages reinstall from the `packages` list
 
 ## Make targets
 
