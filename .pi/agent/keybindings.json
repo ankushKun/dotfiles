@@ -5,7 +5,7 @@
   "tui.select.down": ["down", "ctrl+n"],
   "tui.editor.deleteWordBackward": ["ctrl+w", "ctrl+backspace", "alt+backspace"],
 
-  "app.session.new": "ctrl+n",
+  "app.session.new": "ctrl+shift+n",
   "app.session.resume": "ctrl+l",
   "app.session.tree": "ctrl+shift+g",
   "app.session.fork": "ctrl+shift+f",

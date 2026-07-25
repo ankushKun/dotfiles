@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.80.10",
+  "lastChangelogVersion": "0.82.0",
   "theme": "tokyo-night",
   "defaultThinkingLevel": "high",
   "editorPaddingX": 1,
@@ -39,17 +39,43 @@
       "maxRetryDelayMs": 60000
     }
   },
-  "extensions": [
-    "$HOME/.pi/agent/extensions/single-todo-widget.ts",
-    "$HOME/.local/lib/node_modules/@earendil-works/pi-coding-agent/examples/extensions/subagent/index.ts",
-    "$HOME/.local/lib/node_modules/@earendil-works/pi-coding-agent/examples/extensions/questionnaire.ts"
-  ],
+  "ayu": {
+    "rewind": {
+      "restoreOnTree": "ask"
+    },
+    "checkpoint": {
+      "restoreOnResume": false,
+      "restoreOnFork": false,
+      "restoreOnClone": false,
+      "maxFileMB": 5,
+      "exclude": [
+        "**/node_modules/**",
+        "**/.venv/**",
+        "**/venv/**",
+        "**/__pycache__/**",
+        "**/dist/**",
+        "**/build/**",
+        "**/target/**",
+        "**/.next/**",
+        "**/.turbo/**",
+        "**/*.mdb",
+        "**/*.sqlite",
+        "**/*.db",
+        "agent/npm/**",
+        "agent/ayu/**",
+        "agent/sessions/**",
+        "agent/cache/**",
+        "agent/pi-hermes-memory/**"
+      ]
+    }
+  },
+  "extensions": [],
   "enableSkillCommands": true,
   "defaultProjectTrust": "ask",
   "collapseChangelog": true,
   "quietStartup": true,
-  "defaultProvider": "cursor",
-  "defaultModel": "grok-4.5",
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-5.6-luna",
   "packages": [
     "$HOME/.pi/agent/extensions/quiet-tool-chrome",
     "npm:pi-web-access",
@@ -60,9 +86,6 @@
     "npm:@juicesharp/rpiv-todo",
     "npm:pi-tool-display",
     "npm:@ff-labs/pi-fff",
-    "npm:pi-simplify",
-    "npm:@plannotator/pi-extension",
-    "npm:@spences10/pi-telemetry",
-    "npm:pi-cursor-sdk"
+    "$HOME/.pi/agent/extensions/my-pi-harness"
   ]
 }
