@@ -65,7 +65,12 @@
         "agent/ayu/**",
         "agent/sessions/**",
         "agent/cache/**",
-        "agent/pi-hermes-memory/**"
+        "agent/pi-hermes-memory/**",
+        "**/.pi/agent/npm/**",
+        "**/.pi/agent/ayu/**",
+        "**/.pi/agent/sessions/**",
+        "**/.pi/agent/cache/**",
+        "**/.pi/agent/pi-hermes-memory/**"
       ]
     }
   },
