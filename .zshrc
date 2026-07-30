@@ -152,12 +152,6 @@ command_not_found_handler() {
 source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-# Smart cd (cdi for interactive fzf picker)
-if command -v zoxide &>/dev/null; then
-  export _ZO_FZF_OPTS='--ignore-case'
-  eval "$(zoxide init zsh --cmd cd)"
-fi
-
 # Case-insensitive directory tab completion when default matching is case-sensitive
 # (autocd uses _command_names, not matcher-list, for bare names like `dev` → `Developer/`)
 __dirs_ci_comp() {
@@ -188,18 +182,6 @@ function _autocd() {
   _autocd_orig "$@" && ret=0
   return ret
 }
-
-if (( $+functions[__zoxide_z_complete] )); then
-  eval "function __zoxide_z_complete_orig() {
-  ${functions[__zoxide_z_complete]}
-  }"
-  function __zoxide_z_complete() {
-    local ret=1
-    [[ "${#words[@]}" -eq 2 ]] && __dirs_ci_comp && ret=0
-    __zoxide_z_complete_orig "$@" && ret=0
-    return ret
-  }
-fi
 
 # Performance tweaks
 ZSH_AUTOSUGGEST_MANUAL_REBIND=1
@@ -247,6 +229,10 @@ portkill() {
   fi
 }
 
+portlist() {
+  lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk 'NR>1{print $9, $1, $2}' | sort -u
+}
+
 __ask_cmd() { opencode run --model "opencode/deepseek-v4-flash-free" "$*" | glow -s tokyo-night -w 0 -; }
 alias ask='noglob __ask_cmd'
 
@@ -289,3 +275,21 @@ export PATH="$HOME/.grok/bin:$PATH"
 fpath=(~/.grok/completions/zsh $fpath)
 autoload -Uz compinit && compinit -C
 # <<< grok installer <<<
+
+# Smart cd (cdi for interactive fzf picker) — at end per zoxide recommendation
+if command -v zoxide &>/dev/null; then
+  export _ZO_FZF_OPTS='--ignore-case'
+  eval "$(zoxide init zsh --cmd cd)"
+fi
+
+if (( $+functions[__zoxide_z_complete] )); then
+  eval "function __zoxide_z_complete_orig() {
+  ${functions[__zoxide_z_complete]}
+  }"
+  function __zoxide_z_complete() {
+    local ret=1
+    [[ "${#words[@]}" -eq 2 ]] && __dirs_ci_comp && ret=0
+    __zoxide_z_complete_orig "$@" && ret=0
+    return ret
+  }
+fi

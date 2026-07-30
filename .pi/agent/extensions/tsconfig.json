@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "baseUrl": ".",
+    "paths": {
+      "@earendil-works/pi-coding-agent": ["my-pi-harness/node_modules/@earendil-works/pi-coding-agent"],
+      "@earendil-works/pi-tui": ["my-pi-harness/node_modules/@earendil-works/pi-tui"],
+      "@earendil-works/pi-ai": ["my-pi-harness/node_modules/@earendil-works/pi-ai"],
+      "typebox": ["my-pi-harness/node_modules/typebox"],
+      "effect": ["my-pi-harness/node_modules/effect"],
+      "effect/*": ["my-pi-harness/node_modules/effect/*"]
+    },
+    "typeRoots": ["my-pi-harness/node_modules/@types"]
+  },
+  "include": ["permission-gate.ts", "tokyonight-chrome.ts"]
+}

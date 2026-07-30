@@ -1,0 +1,27 @@
+{
+  "name": "weeblet-pi-harness",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./extensions/git-info/index.ts",
+      "./extensions/model-info/index.ts",
+      "./extensions/copy-all/index.ts",
+      "./extensions/subagents/index.ts",
+      "./extensions/summaries/index.ts"
+    ]
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "^0.82.0",
+    "@earendil-works/pi-coding-agent": "^0.82.0",
+    "@earendil-works/pi-tui": "^0.82.0",
+    "@effect/platform-node": "^4.0.0-beta.94",
+    "acorn": "^8.15.0",
+    "effect": "^4.0.0-beta.94",
+    "typebox": "^1.1.38"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.3"
+  }
+}

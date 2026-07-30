@@ -16,6 +16,7 @@
 .pi/agent/**/*.sqlite-*
 .pi/agent/sessions/
 .pi/agent/npm/
+.pi/agent/extensions/my-pi-harness/node_modules/
 .pi/agent/cache/
 .pi/agent/pi-hermes-memory/
 .pi/agent/projects-memory/

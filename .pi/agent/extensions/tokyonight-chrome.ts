@@ -13,14 +13,31 @@ import {
 	type Theme,
 	type ThemeColor,
 } from "@earendil-works/pi-coding-agent";
-import type { Component, EditorTheme, TUI } from "@earendil-works/pi-tui";
+import type {
+	Component,
+	EditorTheme,
+	TUI,
+} from "@earendil-works/pi-tui";
 import {
+	getCapabilities,
+	hyperlink,
 	matchesKey,
 	SelectList,
 	truncateToWidth,
 	visibleWidth,
 	type SelectItem,
 } from "@earendil-works/pi-tui";
+import type { ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent";
+import {
+	emptyModelInfoState,
+	GIT_INFO_CHANNEL,
+	MODEL_INFO_CHANNEL,
+	REFRESH_CHANNEL,
+	type GitInfoState,
+	isModelInfoState,
+	type ModelInfoState,
+} from "./my-pi-harness/extensions/shared/dashboard-state.ts";
+import { collectExtensionStatusLines } from "./my-pi-harness/extensions/shared/extension-status.ts";
 
 /** Editor instance with submit hook (wired by interactive mode after factory returns). */
 type SubmittableEditor = CustomEditor & {
@@ -68,6 +85,8 @@ const KEYBIND_ROWS: { key: string; desc: string }[] = [
 	{ key: "?", desc: "keybinds" },
 	{ key: "q", desc: "quit" },
 	{ key: "Esc", desc: "editor (keep greeter)" },
+	{ key: "Ctrl+P", desc: "command palette" },
+	{ key: "Ctrl+Shift+A", desc: "activity center" },
 	{ key: "Shift+Tab", desc: "toggle plan mode" },
 	{ key: "Alt+Shift+Tab", desc: "cycle thinking level" },
 ];
@@ -99,6 +118,15 @@ let homeOpen = false;
 let homeBackdropActive = false;
 /** Latest git branch for the active session cwd (status bar + editor rail). */
 let gitBranch: string | undefined;
+let gitSummary: GitInfoState = {
+	isRepository: false,
+	branch: null,
+	changedFiles: 0,
+	pullRequest: null,
+};
+let modelInfo: ModelInfoState = emptyModelInfoState();
+/** Latest extension statuses, retained for the activity center and compact rail. */
+let latestExtensionStatuses = new Map<string, string>();
 /** Rows reserved under the backdrop for the composer + meta rows + edge spacer. */
 const EDITOR_RESERVE = 9;
 /** No horizontal padding — full-width Cursor-style input. */
@@ -343,7 +371,28 @@ function lastTurnMetrics(ctx: ExtensionContext): TurnMetrics | undefined {
 
 function formatPlace(cwd: string, branch: string | undefined, compact: boolean): string {
 	const base = compact ? path.basename(cwd) || cwd : formatCwd(cwd);
-	return branch ? `${base} · ${branch}` : base;
+	const effectiveBranch = gitSummary.branch ?? branch;
+	const branchPart = effectiveBranch ? ` · ${effectiveBranch}` : "";
+	const changedPart =
+		gitSummary.isRepository && gitSummary.changedFiles > 0
+			? ` · ${gitSummary.changedFiles} changed`
+			: "";
+	const pullRequest = gitSummary.pullRequest;
+	let prPart = "";
+	if (pullRequest) {
+		const label = `PR #${pullRequest.number}${pullRequest.isDraft ? " draft" : ""}`;
+		let linkedLabel = label;
+		try {
+			const url = new URL(pullRequest.url);
+			if (url.protocol === "https:") {
+				linkedLabel = getCapabilities().hyperlinks ? hyperlink(label, url.toString()) : label;
+			}
+		} catch {
+			// Keep the plain PR label when GitHub returns an unexpected URL.
+		}
+		prPart = ` · ${linkedLabel}`;
+	}
+	return `${base}${branchPart}${changedPart}${prPart}`;
 }
 
 /** Fit left …… right into width with a flexible gap. */
@@ -455,12 +504,16 @@ function composerMetaRow1Parts(
 ): { left: string; right: string } {
 	const label = modeLabel(mode, plan, spinnerFrame);
 	const modeChip = label ? modeAccent(theme, mode)(label) : "";
-	const thinkingLevel = formatThinking(pi.getThinkingLevel());
+	const provider = modelInfo.provider || ctx.model?.provider;
+	const modelId = modelInfo.provider ? modelInfo.modelId : ctx.model?.id;
+	const thinkingLevel = formatThinking(
+		modelInfo.provider ? modelInfo.thinking : pi.getThinkingLevel(),
+	);
 	const rightBudget = Math.max(12, width - visibleWidth(modeChip) - 4);
 	const model = formatModelStatus(
 		theme,
-		ctx.model?.provider,
-		ctx.model?.id,
+		provider,
+		modelId,
 		thinkingLevel,
 		rightBudget,
 	);
@@ -479,10 +532,14 @@ function buildComposerMetaRow2(
 
 	const place = muted(formatPlace(ctx.cwd, gitBranch, width < 60));
 
-	const usage = ctx.getContextUsage();
-	const tokens = usage?.tokens;
-	const window = usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
-	const percent = usage?.percent ?? null;
+	const liveUsage = modelInfo.provider ? {
+		tokens: modelInfo.contextTokens,
+		contextWindow: modelInfo.contextWindow,
+		percent: modelInfo.contextPercent,
+	} : ctx.getContextUsage();
+	const tokens = liveUsage?.tokens;
+	const window = liveUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
+	const percent = liveUsage?.percent ?? null;
 	const used = tokens === null || tokens === undefined ? "?" : formatTokens(tokens);
 	const limit = window > 0 ? formatTokens(window) : "?";
 	const ctxLabel = `${used} / ${limit}`;
@@ -492,9 +549,13 @@ function buildComposerMetaRow2(
 			: percent !== null && percent >= 70
 				? theme.fg("warning", ctxLabel)
 				: dim(ctxLabel);
-	const cost = dim(formatCost(sumSessionCost(ctx)));
+	const cost = dim(formatCost(modelInfo.provider ? modelInfo.cost : sumSessionCost(ctx)));
 
 	const rightParts: string[] = [ctxColored, cost];
+	const liveTps = modelInfo.tokensPerSecond;
+	if (liveTps !== null && Number.isFinite(liveTps) && liveTps > 0) {
+		rightParts.push(dim(formatTps(liveTps)));
+	}
 
 	if (opts.isWorking && opts.liveElapsedSec !== undefined && opts.liveElapsedSec >= 0) {
 		rightParts.push(dim(`… ${formatLatency(opts.liveElapsedSec)}`));
@@ -502,7 +563,11 @@ function buildComposerMetaRow2(
 		const metrics = lastTurnMetrics(ctx);
 		if (metrics) {
 			rightParts.push(dim(formatLatency(metrics.latencySec)));
-			if (metrics.tps !== undefined && Number.isFinite(metrics.tps)) {
+			if (
+				liveTps === null &&
+				metrics.tps !== undefined &&
+				Number.isFinite(metrics.tps)
+			) {
 				rightParts.push(dim(formatTps(metrics.tps)));
 			}
 		}
@@ -861,9 +926,11 @@ class FullHomeScreen implements Component {
 
 	render(width: number): string[] {
 		const rows = this.tui.terminal?.rows ?? 30;
-		const cols = Math.max(40, width);
+		const cols = Math.max(1, width);
 		const artH = artFullLineCount();
-		let artKeep = Math.min(artH, Math.max(0, rows - HOME_CHROME));
+		let artKeep = shouldShowArt(cols, rows)
+			? Math.min(artH, Math.max(0, rows - HOME_CHROME))
+			: 0;
 		let body = this.buildBody(cols, artKeep);
 		while (body.length > rows && artKeep > 0) {
 			artKeep -= 1;
@@ -882,15 +949,145 @@ class EmptyHeader implements Component {
 }
 
 /**
- * Edge spacer under the composer meta rows.
- * Path / tokens / latency live in the editor meta rows (always on-screen).
+ * Compact extension status rail below the composer.
+ * Path / tokens / latency remain in the editor meta rows.
  */
 class SessionStatusFooter implements Component {
+	constructor(
+		private theme: Theme,
+		private footerData: ReadonlyFooterDataProvider,
+	) {}
+
 	invalidate(): void {}
 
-	render(): string[] {
-		return [""];
+	render(width: number): string[] {
+		latestExtensionStatuses = new Map(this.footerData.getExtensionStatuses());
+		const statuses = collectExtensionStatusLines(latestExtensionStatuses);
+
+		if (statuses.length === 0) return [""];
+		return statuses.map((status) =>
+			truncateToWidth(this.theme.fg("muted", status), width, this.theme.fg("dim", "…")),
+		);
 	}
+}
+
+/**
+ * Unified activity view for extension-owned work. Individual extensions keep
+ * their specialized viewers (/ps, /subagents, /workflows), while this screen
+ * answers the simple question: what is currently running or waiting for me?
+ */
+class ActivityCenter implements Component {
+	private ticker: ReturnType<typeof setInterval>;
+	private closed = false;
+
+	constructor(
+		private tui: TUI,
+		private theme: Theme,
+		private done: () => void,
+	) {
+		this.ticker = setInterval(() => this.tui.requestRender(), 1000);
+	}
+
+	invalidate(): void {}
+
+	dispose(): void {
+		if (this.closed) return;
+		this.closed = true;
+		clearInterval(this.ticker);
+	}
+
+	handleInput(data: string): void {
+		if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) {
+			this.dispose();
+			this.done();
+		}
+	}
+
+	render(width: number): string[] {
+		const border = (text: string) => this.theme.fg("border", text);
+		const accent = (text: string) => this.theme.fg("accent", text);
+		const muted = (text: string) => this.theme.fg("muted", text);
+		const dim = (text: string) => this.theme.fg("dim", text);
+		const lines: string[] = [
+			border("─".repeat(Math.max(8, width))),
+			accent(this.theme.bold(" Activity")),
+			"",
+		];
+
+		const entries = [...latestExtensionStatuses.entries()].sort(([a], [b]) => a.localeCompare(b));
+		if (entries.length === 0) {
+			lines.push(muted("No extension activity is currently reported."));
+		} else {
+			for (const [key, value] of entries) {
+				const parts = value
+					.split("\n")
+					.map((part) => part.trim())
+					.filter(Boolean);
+				for (const part of parts.length > 0 ? parts : ["ready"]) {
+					lines.push(truncateToWidth(`${accent(key)}  ${muted(part)}`, width, dim("…")));
+				}
+			}
+		}
+
+		lines.push("", dim("Esc close · /ps terminals · /subagents agents · /workflows runs"));
+		lines.push(border("─".repeat(Math.max(8, width))));
+		return lines;
+	}
+}
+
+async function openActivityCenter(ctx: ExtensionContext): Promise<void> {
+	if (ctx.mode !== "tui") {
+		ctx.ui.notify("Activity center requires the interactive TUI", "warning");
+		return;
+	}
+	await ctx.ui.custom<void>(
+		(tui, theme, _keybindings, done) => new ActivityCenter(tui, theme, done),
+		{ overlay: true, overlayOptions: { anchor: "center", width: "100%", maxHeight: "100%" } },
+	);
+}
+
+interface PaletteCommand {
+	command: string;
+	label: string;
+	description: string;
+}
+
+const PALETTE_COMMANDS: PaletteCommand[] = [
+	{ command: "/home", label: "Open home", description: "session launcher and model picker" },
+	{ command: "/new", label: "New session", description: "start a clean conversation" },
+	{ command: "/resume", label: "Resume session", description: "search and switch sessions" },
+	{ command: "/model", label: "Select model", description: "change provider/model" },
+	{ command: "/activity", label: "Open activity center", description: "inspect running work" },
+	{ command: "/lg", label: "Review changed files", description: "browse the working-tree diff" },
+	{ command: "/rewind", label: "Rewind checkpoint", description: "restore code or conversation safely" },
+	{ command: "/checkpoint", label: "Manage checkpoints", description: "inspect checkpoint storage" },
+	{ command: "/ps", label: "Background terminals", description: "inspect or stop processes" },
+	{ command: "/subagents", label: "Subagents", description: "inspect or take over child agents" },
+	{ command: "/workflows", label: "Workflows", description: "inspect orchestration runs" },
+	{ command: "/copy-all", label: "Copy conversation", description: "copy user and assistant messages" },
+	{ command: "/compact", label: "Compact context", description: "summarize the current session" },
+	{ command: "/permissions", label: "Permission mode", description: "change approval behavior" },
+];
+
+async function openCommandPalette(ctx: ExtensionContext): Promise<void> {
+	if (ctx.mode !== "tui") {
+		ctx.ui.notify("Command palette requires the interactive TUI", "warning");
+		return;
+	}
+	const items: SelectItem[] = PALETTE_COMMANDS.map((item) => ({
+		value: `${item.label} ${item.description} ${item.command}`.toLowerCase() + `::${item.command}`,
+		label: item.label,
+		description: `${item.command} · ${item.description}`,
+	}));
+	const picked = await pickFromSelectList(ctx, "Command palette", items, 14);
+	if (!picked) return;
+	const command = picked.includes("::") ? picked.split("::").pop()! : picked;
+	setTimeout(() => {
+		if (!submitSlashCommand(command)) {
+			ctx.ui.setEditorText(command);
+			ctx.ui.notify(`Ready: ${command} · press Enter to run`, "info");
+		}
+	}, 0);
 }
 
 /**
@@ -901,21 +1098,25 @@ class HomeBackdropHeader implements Component {
 	constructor(
 		private tui: TUI,
 		private theme: Theme,
-		private meta: HomeMeta,
+		private pi: ExtensionAPI,
+		private ctx: ExtensionContext,
 	) {}
 
 	invalidate(): void {}
 
 	render(width: number): string[] {
 		const rows = this.tui.terminal?.rows ?? 30;
-		const cols = Math.max(40, width);
+		const cols = Math.max(1, width);
 		const target = Math.max(8, rows - EDITOR_RESERVE);
+		const meta = buildHomeMeta(this.ctx, this.pi);
 
 		const body: string[] = [];
-		const art = renderHomeArt(this.theme, cols, artFullLineCount());
+		const art = shouldShowArt(cols, rows)
+			? renderHomeArt(this.theme, cols, artFullLineCount())
+			: [];
 		body.push(...art);
 		if (art.length) body.push("");
-		body.push(...renderHomeTitle(this.theme, this.meta, cols));
+		body.push(...renderHomeTitle(this.theme, meta, cols));
 
 		const topPad = Math.max(0, Math.floor((target - body.length) / 2));
 		const lines = [...Array.from({ length: topPad }, () => ""), ...body];
@@ -927,8 +1128,7 @@ class HomeBackdropHeader implements Component {
 async function installHomeBackdrop(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
 	if (ctx.mode !== "tui") return;
 	homeBackdropActive = true;
-	const meta = buildHomeMeta(ctx, pi);
-	ctx.ui.setHeader((tui, theme) => new HomeBackdropHeader(tui, theme, meta));
+	ctx.ui.setHeader((tui, theme) => new HomeBackdropHeader(tui, theme, pi, ctx));
 	activeTui?.requestRender();
 }
 
@@ -1307,6 +1507,27 @@ async function openFullHome(pi: ExtensionAPI, ctx: ExtensionContext): Promise<vo
 
 export default function tokyoNightChrome(pi: ExtensionAPI): void {
 	let isWorking = false;
+	let sessionGeneration = 0;
+
+	pi.events.on(GIT_INFO_CHANNEL, (value) => {
+		if (!value || typeof value !== "object") return;
+		const next = value as Partial<GitInfoState>;
+		if (typeof next.isRepository !== "boolean") return;
+		gitSummary = {
+			isRepository: next.isRepository,
+			branch: typeof next.branch === "string" ? next.branch : null,
+			changedFiles: typeof next.changedFiles === "number" ? next.changedFiles : 0,
+			pullRequest: next.pullRequest ?? null,
+		};
+		if (gitSummary.branch) gitBranch = gitSummary.branch;
+		activeTui?.requestRender();
+	});
+
+	pi.events.on(MODEL_INFO_CHANNEL, (value) => {
+		if (!isModelInfoState(value)) return;
+		modelInfo = value;
+		activeTui?.requestRender();
+	});
 	let spinnerIndex = 0;
 	let spinnerTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -1388,16 +1609,32 @@ export default function tokyoNightChrome(pi: ExtensionAPI): void {
 		activeTui?.requestRender();
 	});
 
-	pi.on("agent_end", () => {
+	pi.on("agent_end", (_event, ctx) => {
 		isWorking = false;
 		workStartedAt = undefined;
 		runTokensLive = { input: 0, output: 0 };
 		stopSpinner();
+		if (ctx.hasUI && gitSummary.changedFiles > 0) {
+			ctx.ui.notify(
+				`${gitSummary.changedFiles} file${gitSummary.changedFiles === 1 ? "" : "s"} changed · /lg review · /rewind restore`,
+				"info",
+			);
+		}
 		activeTui?.requestRender();
 	});
 
 	pi.on("session_shutdown", () => {
 		stopSpinner();
+		sessionGeneration += 1;
+		gitBranch = undefined;
+		latestExtensionStatuses = new Map();
+		gitSummary = {
+			isRepository: false,
+			branch: null,
+			changedFiles: 0,
+			pullRequest: null,
+		};
+		modelInfo = emptyModelInfoState();
 		activeTui = undefined;
 		activeEditor = undefined;
 		homeBackdropActive = false;
@@ -1412,6 +1649,14 @@ export default function tokyoNightChrome(pi: ExtensionAPI): void {
 
 	pi.on("session_start", async (event, ctx) => {
 		if (ctx.mode !== "tui") return;
+		const generation = ++sessionGeneration;
+		gitBranch = undefined;
+		gitSummary = {
+			isRepository: false,
+			branch: null,
+			changedFiles: 0,
+			pullRequest: null,
+		};
 
 		installHiddenCommandFilter(ctx);
 
@@ -1420,16 +1665,18 @@ export default function tokyoNightChrome(pi: ExtensionAPI): void {
 		ctx.ui.setWorkingMessage("thinking");
 		ctx.ui.setWorkingIndicator({ frames: WORKING_DOTS, intervalMs: 110 });
 		ctx.ui.setWorkingVisible(false);
-		ctx.ui.setFooter(() => new SessionStatusFooter());
+		ctx.ui.setFooter((_tui, theme, footerData) => new SessionStatusFooter(theme, footerData));
+		pi.events.emit(REFRESH_CHANNEL, undefined);
 
 		void pi.exec("git", ["branch", "--show-current"], { cwd: ctx.cwd })
 			.then((result) => {
+				if (generation !== sessionGeneration) return;
 				const stdout = result?.stdout.trim();
 				gitBranch = stdout && stdout.length > 0 ? stdout : undefined;
 				activeTui?.requestRender();
 			})
 			.catch(() => {
-				gitBranch = undefined;
+				if (generation === sessionGeneration) gitBranch = undefined;
 			});
 
 		const talking = hasConversation(ctx);
@@ -1450,6 +1697,14 @@ export default function tokyoNightChrome(pi: ExtensionAPI): void {
 			}
 
 			handleInput(data: string): void {
+				if (matchesKey(data, "ctrl+p")) {
+					void openCommandPalette(ctx);
+					return;
+				}
+				if (matchesKey(data, "ctrl+shift+a")) {
+					void openActivityCenter(ctx);
+					return;
+				}
 				wrapEditorSubmit(this, ctx);
 				super.handleInput(data);
 				this.tui.requestRender();
@@ -1526,6 +1781,20 @@ export default function tokyoNightChrome(pi: ExtensionAPI): void {
 		if (shouldIdleHome) {
 			await openFullHome(pi, ctx);
 		}
+	});
+
+	pi.registerCommand("activity", {
+		description: "Open the unified activity center",
+		handler: async (_args, ctx) => {
+			await openActivityCenter(ctx);
+		},
+	});
+
+	pi.registerCommand("commands", {
+		description: "Open the command palette",
+		handler: async (_args, ctx) => {
+			await openCommandPalette(ctx);
+		},
 	});
 
 	pi.registerCommand("home", {
