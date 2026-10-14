@@ -276,8 +276,11 @@ fpath=(~/.grok/completions/zsh $fpath)
 autoload -Uz compinit && compinit -C
 # <<< grok installer <<<
 
-# Smart cd (cdi for interactive fzf picker) — at end per zoxide recommendation
-if command -v zoxide &>/dev/null; then
+# Smart cd (cdi for interactive fzf picker), at end per zoxide recommendation.
+# Skipped in Claude Code shells: its shell snapshot keeps the cd function but
+# drops chpwd_functions, so every agent cd tripped the zoxide doctor warning,
+# and agents should get plain builtin cd anyway (no fuzzy jumps on typos).
+if [[ -z $CLAUDECODE ]] && command -v zoxide &>/dev/null; then
   export _ZO_FZF_OPTS='--ignore-case'
   eval "$(zoxide init zsh --cmd cd)"
 fi
