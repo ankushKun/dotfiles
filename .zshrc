@@ -236,30 +236,13 @@ portlist() {
 __ask_cmd() { opencode run --model "opencode/deepseek-v4-flash-free" "$*" | glow -s tokyo-night -w 0 -; }
 alias ask='noglob __ask_cmd'
 
-# Lazy-load NVM (only load when needed to speed up shell startup)
-nvm() {
-  unset -f nvm node npm
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-  nvm "$@"
-}
-node() {
-  unset -f nvm node npm
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-  node "$@"
-}
-npm() {
-  unset -f nvm node npm
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-  npm "$@"
-}
-
 # The next line updates PATH for the Google Cloud SDK.
 if [ -f '/Users/weeblet/.cli/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/weeblet/.cli/google-cloud-sdk/path.zsh.inc'; fi
 
 # The next line enables shell command completion for gcloud.
 if [ -f '/Users/weeblet/.cli/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/weeblet/.cli/google-cloud-sdk/completion.zsh.inc'; fi
 
-# Hermes Agent — ensure ~/.local/bin is on PATH
+# ~/.local/bin on PATH (Claude Code, grok, oof)
 export PATH="$HOME/.local/bin:$PATH"
 
 # pnpm

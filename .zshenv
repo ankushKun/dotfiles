@@ -6,7 +6,6 @@ export HOMEBREW_NO_AUTO_UPDATE="1"
 export HOMEBREW_NO_ENV_HINTS="1"
 export XDG_CONFIG_HOME="$HOME/.config"
 export PNPM_HOME="$HOME/.local/share/pnpm"
-export NVM_DIR="$HOME/.nvm"
 # FFF replaces built-in find/grep (survives pi-fff package updates)
 export PI_FFF_MODE="override"
 # Persist FFF frecency and query history across pi sessions.
@@ -25,3 +24,6 @@ if [[ -n ${CMUX_RESTORE_SCROLLBACK_FILE-} ]]; then
   export CMUX_DID_RESTORE_SCROLLBACK=1
 fi
 . "$HOME/.cargo/env"
+
+# Supply chain: refuse Homebrew bottles without a valid build attestation
+export HOMEBREW_VERIFY_ATTESTATIONS=1
