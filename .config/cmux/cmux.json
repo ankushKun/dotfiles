@@ -12,7 +12,8 @@
     "hideTabCloseButton": true,
     // Cmd+W on last surface → spawn replacement instead of quitting.
     // Ctrl+D / shell exit can still close the workspace (cmux#4155).
-    "keepWorkspaceOpenWhenClosingLastSurface": true
+    "keepWorkspaceOpenWhenClosingLastSurface": true,
+    "paneResizeStepPixels": 40
   },
 
   "terminal": {
@@ -60,6 +61,12 @@
       "focusRight": "cmd+right",
       "focusUp": "cmd+up",
       "focusDown": "cmd+down",
+      // Pane resize, matches kitty→tmux Ctrl+Shift+arrows. Moves the
+      // divider toward the arrow, so the opposite arrow shrinks the pane.
+      "resize-pane-left": "ctrl+shift+left",
+      "resize-pane-right": "ctrl+shift+right",
+      "resize-pane-up": "ctrl+shift+up",
+      "resize-pane-down": "ctrl+shift+down",
       // New workspace in the left sidebar (not a surface tab)
       "newTab": "cmd+n",
       // New surface/tab inside the current workspace

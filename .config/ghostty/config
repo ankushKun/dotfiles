@@ -55,9 +55,3 @@ keybind = alt+down=text:\x1b[B
 # text:\x1b[13;2u via keybind mangles to literal "3;2u" garbage. Send \n.
 keybind = shift+enter=text:\n
 keybind = ctrl+enter=text:\n
-
-# Pane resize — matches kitty→tmux Ctrl+Shift+arrows (Ghostty resize_split)
-keybind = ctrl+shift+left=resize_split:left
-keybind = ctrl+shift+right=resize_split:right
-keybind = ctrl+shift+up=resize_split:up
-keybind = ctrl+shift+down=resize_split:down
