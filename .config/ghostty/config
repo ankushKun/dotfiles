@@ -18,9 +18,8 @@ selection-background = #283457
 selection-foreground = #c0caf5
 
 # kitty: opacity 0.85, blur 35 (image deferred — see below)
-# blur kept low: 35 made macOS Zoom laggy
+# no blur: it made macOS Zoom laggy
 background-opacity = 0.95
-background-blur = 5
 
 # miku wallpaper: Ghostty/cmux applies background-image per-terminal, so it
 # duplicates across every split. Re-enable when a window-global background
