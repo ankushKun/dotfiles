@@ -9,13 +9,17 @@ fi
 
 # Greeting — must run before p10k instant prompt (stdout after it corrupts the prompt)
 # Tokyo Night blue (#7aa2f7); truncate to $COLUMNS; if too narrow for the
-# right-side "Hi weeblet", overlay it 3 lines into the art on the left.
+# right-side "Hi $USER", overlay it 3 lines into the art on the left.
 #
 # cmux session restore replays the last scrollback (including this greeting +
 # prompt) before .zshrc runs, which otherwise stacks a second copy on relaunch.
 # Clear the viewport first so only one greeting is visible; older lines remain
 # in scrollback above.
-if [[ -o interactive && -t 1 && -r "$HOME/ascii.txt" ]]; then
+#
+# Skipped in coding agent shells so the art never lands in their tool output.
+# AI_AGENT covers Claude Code, pi and opencode; the rest are Codex, Cursor, Gemini.
+if [[ -o interactive && -t 1 && -r "$HOME/.pi/ascii.txt" ]] &&
+   [[ -z $AI_AGENT$CLAUDECODE$PI_CODING_AGENT$OPENCODE$CODEX_SANDBOX$CODEX_THREAD_ID$CURSOR_AGENT$GEMINI_CLI ]]; then
   if [[ -n ${CMUX_DID_RESTORE_SCROLLBACK-} ]]; then
     unset CMUX_DID_RESTORE_SCROLLBACK
     printf '\033[H\033[2J'
@@ -23,10 +27,11 @@ if [[ -o interactive && -t 1 && -r "$HOME/ascii.txt" ]]; then
   () {
     emulate -L zsh
     setopt extendedglob
-    local cols=${COLUMNS:-80} line hi='Hi weeblet' need_left=0 i=1
+    local cols=${COLUMNS:-80} line hi="Hi $USER" need_left=0 i=1
     local art_start=1 hi_at=1 inject lead rest
     local -a lines
-    lines=("${(@f)$(<"$HOME/ascii.txt")}")
+    lines=("${(@f)$(<"$HOME/.pi/ascii.txt")}")
+    lines=("${(@)lines/%Hi [^[:blank:]]##/$hi}")
 
     for line in "$lines[@]"; do
       (( ${#line} > cols )) && need_left=1 && break
