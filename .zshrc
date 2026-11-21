@@ -92,7 +92,10 @@ zstyle ':completion:*' matcher-list \
   'r:|[._-]=* r:|=*' \
   'l:|=* r:|=*'
 
-fpath=(~/.grok/completions/zsh $fpath)
+# Homebrew completions here too: brew shellenv only runs in login shells (.zprofile),
+# and compinit -C trusts a dump built by a login shell, so non-login shells break.
+typeset -U fpath
+fpath=(~/.grok/completions/zsh /opt/homebrew/share/zsh/site-functions $fpath)
 autoload -U compinit && compinit -C
 
 # History
