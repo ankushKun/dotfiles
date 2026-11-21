@@ -92,6 +92,7 @@ zstyle ':completion:*' matcher-list \
   'r:|[._-]=* r:|=*' \
   'l:|=* r:|=*'
 
+fpath=(~/.grok/completions/zsh $fpath)
 autoload -U compinit && compinit -C
 
 # History
@@ -213,7 +214,7 @@ alias gs='git status'
 alias ga='git add'
 alias gc='git commit'
 alias gp='git push'
-alias gl='git pull'
+alias gl='git log'
 alias gd='git diff'
 alias gco='git checkout'
 alias gb='git branch'
@@ -242,27 +243,22 @@ __ask_cmd() { opencode run --model "opencode/deepseek-v4-flash-free" "$*" | glow
 alias ask='noglob __ask_cmd'
 
 # The next line updates PATH for the Google Cloud SDK.
-if [ -f '/Users/weeblet/.cli/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/weeblet/.cli/google-cloud-sdk/path.zsh.inc'; fi
+if [ -f "$HOME/.cli/google-cloud-sdk/path.zsh.inc" ]; then . "$HOME/.cli/google-cloud-sdk/path.zsh.inc"; fi
 
 # The next line enables shell command completion for gcloud.
-if [ -f '/Users/weeblet/.cli/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/weeblet/.cli/google-cloud-sdk/completion.zsh.inc'; fi
+if [ -f "$HOME/.cli/google-cloud-sdk/completion.zsh.inc" ]; then . "$HOME/.cli/google-cloud-sdk/completion.zsh.inc"; fi
 
-# ~/.local/bin on PATH (Claude Code, grok, oof)
-export PATH="$HOME/.local/bin:$PATH"
-
-# pnpm
-export PNPM_HOME="/Users/weeblet/.local/share/pnpm"
+# pnpm (PNPM_HOME is set in .zshenv)
 case ":$PATH:" in
   *":$PNPM_HOME/bin:"*) ;;
   *) export PATH="$PNPM_HOME/bin:$PATH" ;;
 esac
-# pnpm end
 
-# >>> grok installer >>>
+# grok (completions are added to fpath before compinit above)
 export PATH="$HOME/.grok/bin:$PATH"
-fpath=(~/.grok/completions/zsh $fpath)
-autoload -Uz compinit && compinit -C
-# <<< grok installer <<<
+
+# ~/.local/bin last so it wins over pnpm and grok (Claude Code, grok, oof, Antigravity)
+export PATH="$HOME/.local/bin:$PATH"
 
 # Smart cd (cdi for interactive fzf picker), at end per zoxide recommendation.
 # Skipped in Claude Code shells: its shell snapshot keeps the cd function but

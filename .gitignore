@@ -3,6 +3,9 @@
 *.swo
 *~
 
+# cmux write lock created while it saves cmux.json
+.config/cmux/*.cmux-write.lock
+
 # Pi: never commit secrets or runtime data if copied into the tree by mistake
 .pi/agent/auth.json
 .pi/agent/settings.json

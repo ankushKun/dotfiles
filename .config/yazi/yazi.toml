@@ -51,6 +51,6 @@ prepend_previewers = [
   { mime = "text/markdown", run = "glow" },
 ]
 prepend_fetchers = [
-  { id = "git", url = "*",  run = "git", group = "git" },
-  { id = "git", url = "*/", run = "git", group = "git" },
+  { url = "*",  run = "git", group = "git" },
+  { url = "*/", run = "git", group = "git" },
 ]

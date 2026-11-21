@@ -13,6 +13,8 @@ Personal dotfiles repo for macOS (Apple Silicon). Not an application codebase �
 ├── Makefile, README.md         # NOT stowed
 ├── .zshrc, .zshenv, .zprofile, .p10k.zsh
 ├── .npmrc, .bunfig.toml, .yarnrc.yml, .nvmrc   # Node supply chain (Layer 1+2)
+├── .githooks/prepare-commit-msg   # strips Cursor co-author trailers (core.hooksPath)
+├── .local/bin/oof              # Claude Code account switcher, stowed per-file into ~/.local/bin
 ├── .config/
 │   ├── git/config              # pull.rebase = true
 │   ├── pnpm/config.yaml        # global pnpm supply chain settings

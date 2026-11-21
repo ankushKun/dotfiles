@@ -135,7 +135,8 @@ rules = [
 unknown  = { fg = "#545c7e" }
 ignored  = { fg = "#545c7e" }
 untracked = { fg = "#9ece6a" }
-modified  = { fg = "#e0af68" }
+unstaged  = { fg = "#e0af68" }
+staged    = { fg = "#9ece6a" }
 added     = { fg = "#9ece6a" }
 deleted   = { fg = "#f7768e" }
 updated   = { fg = "#e0af68" }
@@ -144,7 +145,8 @@ clean     = { fg = "reset" }
 unknown_sign   = "  "
 ignored_sign   = "  "
 untracked_sign = "? "
-modified_sign  = "* "
+unstaged_sign  = "* "
+staged_sign    = "* "
 added_sign     = "+ "
 deleted_sign   = "- "
 updated_sign   = "* "

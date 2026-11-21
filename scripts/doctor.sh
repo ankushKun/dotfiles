@@ -37,6 +37,7 @@ check_symlink() {
 }
 
 check_symlink "$HOME/.zshrc"
+check_symlink "$HOME/.local/bin/oof"
 if [ -L "$HOME/.config/nvim" ] && readlink "$HOME/.config/nvim" | grep -q ".dotfiles"; then
   ok "Symlink OK: $HOME/.config/nvim"
 elif [ -L "$HOME/.config/nvim/init.lua" ] && readlink "$HOME/.config/nvim/init.lua" | grep -q ".dotfiles"; then
@@ -163,6 +164,9 @@ if [ -s "$HOME/.nvm/nvm.sh" ]; then
   command -v node &>/dev/null && node_bin=$(command -v node)
   command -v npm &>/dev/null && npm_bin=$(command -v npm)
 fi
+# No nvm (or nvm without a default): fall back to whatever node is on PATH.
+[ -z "$node_bin" ] && command -v node &>/dev/null && node_bin=$(command -v node)
+[ -z "$npm_bin" ] && command -v npm &>/dev/null && npm_bin=$(command -v npm)
 
 if [ -n "$node_bin" ]; then
   node_major=$("$node_bin" -p "process.versions.node.split('.')[0]" 2>/dev/null || echo 0)
@@ -172,7 +176,7 @@ if [ -n "$node_bin" ]; then
     warn "Node $("$node_bin" --version) — upgrade to LTS >= 22 for npm min-release-age (run: nvm install)"
   fi
 else
-  warn "Node not found via nvm (run: make install or nvm install)"
+  warn "Node not found (run: make install or nvm install)"
 fi
 
 if [ -n "$npm_bin" ]; then
@@ -235,7 +239,9 @@ check_symlink "$HOME/.pi/agent/plans"
 check_symlink "$HOME/.pi/agent/extensions/quiet-tool-chrome"
 check_symlink "$HOME/.pi/agent/extensions/tokyonight-chrome.ts"
 check_symlink "$HOME/.pi/agent/extensions/permission-gate.ts"
-check_symlink "$HOME/.pi/agent/extensions/single-todo-widget.ts"
+check_symlink "$HOME/.pi/agent/extensions/repo-intelligence.ts"
+check_symlink "$HOME/.pi/agent/extensions/my-pi-harness"
+check_symlink "$HOME/.pi/agent/extensions/pi-tool-display"
 check_symlink "$HOME/.pi/agent/extensions/notify.ts"
 check_symlink "$HOME/.pi/agent/extensions/handoff.ts"
 check_symlink "$HOME/.pi/agent/extensions/code-compaction.ts"

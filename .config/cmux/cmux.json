@@ -13,7 +13,8 @@
     // Cmd+W on last surface → spawn replacement instead of quitting.
     // Ctrl+D / shell exit can still close the workspace (cmux#4155).
     "keepWorkspaceOpenWhenClosingLastSurface": true,
-    "paneResizeStepPixels": 40
+    "paneResizeStepPixels": 40,
+    "accentColor": "system"
   },
 
   "terminal": {

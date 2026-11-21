@@ -1,0 +1,3347 @@
+#!/bin/zsh
+# oof: switch Claude Code accounts and keep the same conversation going.
+# Run `oof help` for usage.
+# https://gist.github.com/ankushKun/cd27fb07b0f06be99d4181b40309103d
+#
+# Tokens live in the macOS Keychain as "oof:<email>#<org>" (logins saved by
+# earlier versions, under "doppel:" or "ccs:", are still read). A Console
+# login (claude auth login --console) bills the API: its key is saved as
+# "oof-api:<email>#<org>" and oof only switches to it when every plan account
+# is full or unreachable. Account details (no secrets) live in
+# ~/.claude/accounts, short names and plans in ~/.claude/accounts/meta. The
+# SessionStart and Stop hooks in ~/.claude/settings.json run `oof save -q`,
+# so logins are saved automatically. Settings that the menu bar and `oof set`
+# change live in ~/.claude/accounts/settings.json. OOF_CONFIG, OOF_STORE and
+# OOF_LABEL override the paths and the launchd label below (handy for testing).
+
+emulate -L zsh
+setopt pipe_fail extended_glob
+zmodload zsh/datetime
+zmodload -F zsh/stat b:zstat
+zmodload zsh/system
+
+SLOT="Claude Code-credentials"
+PREFIX="oof:"
+LEGACY_PREFIXES=(doppel: ccs:)
+# Claude stores a Console login's managed API key under its own service.
+# OOF_API_SLOT and OOF_API_PREFIX override those names (handy for testing).
+API_SLOT=${OOF_API_SLOT:-Claude Code}
+API_PREFIX=${OOF_API_PREFIX:-oof-api:}
+CONFIG=${OOF_CONFIG:-$HOME/.claude.json}
+STORE=${OOF_STORE:-$HOME/.claude/accounts}
+META=$STORE/meta
+SETTINGS=$STORE/settings.json
+# oof start runs oof in the background as this launchd agent.
+LABEL=${OOF_LABEL:-io.github.ankushkun.oof}
+COMMANDS=(status usage limits switch sw use pick menu auto awake start stop set log ls list login save name alias cap rm remove help completion)
+
+# The endpoint behind /usage in claude, the one that says whose a token is,
+# and the OAuth app claude refreshes tokens with.
+USAGE_URL=https://api.anthropic.com/api/oauth/usage
+PROFILE_URL=https://api.anthropic.com/api/oauth/profile
+TOKEN_URL=https://platform.claude.com/v1/oauth/token
+# The token endpoint answers curl's own user agent with a 429.
+USER_AGENT=oof
+# oof auto reads the active account's limits off a one token request here.
+MESSAGES_URL=https://api.anthropic.com/v1/messages
+PROBE_MODEL=${OOF_PROBE_MODEL:-claude-haiku-5-5}
+CLIENT_ID=9d1c250a-e61b-44d9-88ed-5944d1962f5e
+# Usage replies are cached for USAGE_TTL seconds. An account with a limit at
+# RESERVE percent or more is only picked when nothing better is free.
+USAGE_DIR=$STORE/usage
+USAGE_TTL=${OOF_USAGE_TTL:-60}
+RESERVE=${OOF_RESERVE:-90}
+# oof auto moves you before any limit passes AUTO_AT percent. It checks the
+# active account every AUTO_EVERY seconds (AUTO_FAST once it's close, twice
+# as long with auto switching off) and the rest every AUTO_OTHERS. Accounts
+# with less than AUTO_ROOM percent to go are a last resort.
+AUTO_AT=${OOF_AUTO_AT:-99}
+AUTO_EVERY=${OOF_AUTO_EVERY:-60}
+AUTO_FAST=${OOF_AUTO_FAST:-30}
+AUTO_OTHERS=${OOF_AUTO_OTHERS:-300}
+AUTO_ROOM=${OOF_AUTO_ROOM:-10}
+AUTO_LOG=${OOF_AUTO_LOG:-$STORE/auto.log}
+
+mkdir -p "$META" "$USAGE_DIR"
+chmod 700 "$STORE"
+
+# ---------------------------------------------------------------- output
+
+colors_for() {
+  R= B= D= A= A2= G= Y= RED=
+  grad=( '' '' '' '' '' '' )
+  [[ -t ${1:-2} && -z ${NO_COLOR-} && ${TERM-} != dumb ]] || return 0
+  R=$'\e[0m' B=$'\e[1m' D=$'\e[2m'
+  if [[ ${COLORTERM-} == (truecolor|24bit) ]]; then
+    A=$'\e[38;2;217;119;87m' A2=$'\e[38;2;240;170;130m' G=$'\e[38;2;120;200;140m'
+    Y=$'\e[38;2;230;190;110m' RED=$'\e[38;2;230;100;100m'
+    grad=( $'\e[38;2;250;204;168m' $'\e[38;2;244;182;146m' $'\e[38;2;236;160;124m'
+           $'\e[38;2;227;140;104m' $'\e[38;2;217;119;87m'  $'\e[38;2;186;98;72m' )
+  else
+    A=$'\e[38;5;173m' A2=$'\e[38;5;216m' G=$'\e[38;5;114m' Y=$'\e[38;5;179m' RED=$'\e[38;5;167m'
+    grad=( $'\e[38;5;223m' $'\e[38;5;216m' $'\e[38;5;215m' $'\e[38;5;209m' $'\e[38;5;173m' $'\e[38;5;131m' )
+  fi
+}
+colors_for 2
+
+say()  { print -u2 -r -- "  ${A}${B}⇄${R}  $*" }
+ok()   { print -u2 -r -- "  ${G}✓${R}  $*" }
+warn() { print -u2 -r -- "  ${Y}!${R}  $*" }
+hint() { print -u2 -r -- "     ${D}$*${R}" }
+die()  { print -u2 -r -- "  ${RED}✗${R}  $*"; exit 1 }
+
+banner() {
+  local -a art=(
+    ' ██████╗  ██████╗ ███████╗'
+    '██╔═══██╗██╔═══██╗██╔════╝'
+    '██║   ██║██║   ██║█████╗  '
+    '██║   ██║██║   ██║██╔══╝  '
+    '╚██████╔╝╚██████╔╝██║     '
+    ' ╚═════╝  ╚═════╝ ╚═╝     '
+  )
+  local -a side=( '' ''
+    "${B}claude code account switcher${R}"
+    "${D}switch logins, keep your conversation${R}"
+    '' '' )
+  local i line
+  print
+  for (( i = 1; i <= 6; i++ )); do
+    # solid blocks get the gradient, the box-drawing shadow stays dim
+    line=${art[i]//(#m)[╔╗╚╝═║]##/${R}${D}${MATCH}${R}${grad[i]}}
+    print -r -- "  ${grad[i]}${line}${R}    ${side[i]}"
+  done
+}
+
+# ---------------------------------------------------------------- accounts
+
+current_key() {
+  [[ -f $CONFIG ]] || return 0
+  jq -r '.oauthAccount // empty
+    | "\(.emailAddress)#\((.organizationUuid // "none")[0:8])"' "$CONFIG"
+}
+
+saved_keys() {
+  local -a k=( $STORE/*.json~$SETTINGS(N:t:r) )
+  print -rl -- $k
+}
+
+meta() {
+  [[ -f $META/$1.json ]] || return 0
+  jq -r --arg k "$2" '.[$k] // empty' "$META/$1.json"
+}
+
+meta_set() {
+  local f=$META/$1.json tmp
+  shift
+  [[ -f $f ]] || print '{}' > "$f"
+  tmp=$(mktemp "$f.XXXXXX")
+  jq "$@" "$f" > "$tmp" && mv "$tmp" "$f"
+}
+
+# Prints a setting from settings.json, or $2 when it isn't set. Every value
+# is a string: on or off, a percentage, a model name.
+setting() {
+  local v
+  [[ -f $SETTINGS ]] && v=$(jq -r --arg k "$1" '.[$k] // empty' "$SETTINGS" 2>/dev/null)
+  print -r -- "${v:-${2-}}"
+}
+
+# Sets a setting, or clears it back to its default when the value is empty.
+setting_set() {
+  local tmp
+  [[ -f $SETTINGS ]] || print '{}' > "$SETTINGS"
+  tmp=$(mktemp "$SETTINGS.XXXXXX")
+  jq --arg k "$1" --arg v "$2" 'if $v == "" then del(.[$k]) else .[$k] = $v end' "$SETTINGS" > "$tmp" \
+    && mv "$tmp" "$SETTINGS"
+}
+
+plan_label() {
+  local p=${1:l} x=""
+  [[ $2 == (#b)*_([0-9]##x) ]] && x=" ${match[1]}"
+  case $p in
+    max|pro|team|enterprise) print -r -- "${(C)p}$x" ;;
+    *) print -r -- "$p$x" ;;
+  esac
+}
+
+ago() {
+  local s=$(( EPOCHSECONDS - $1 ))
+  if   (( s < 60 ));    then print "just now"
+  elif (( s < 3600 ));  then print "$(( s / 60 ))m ago"
+  elif (( s < 86400 )); then print "$(( s / 3600 ))h ago"
+  else                       print "$(( s / 86400 ))d ago"
+  fi
+}
+
+name_of() {
+  [[ -n $1 ]] || { print -r -- "nobody"; return 0 }
+  local al=$(meta "$1" alias) email=${1%\#*} org=${1##*\#} other
+  [[ -n $al ]] && { print -r -- "$al"; return }
+  # Two Console and plan logins can share an email. Say which org it is.
+  for other in ${(f)"$(saved_keys)"}; do
+    [[ $other != $1 && ${other%\#*} == $email ]] && { print -r -- "$email #$org"; return }
+  done
+  print -r -- "$email"
+}
+
+label() {
+  local pl
+  if api_account "$1"; then pl=API
+  else pl=$(plan_label "$(meta "$1" plan)" "$(meta "$1" tier)"); fi
+  print -r -- "${B}$(name_of "$1")${R}${pl:+ ${D}($pl)${R}}"
+}
+
+# Reads an account's saved token, falling back to logins saved by earlier versions.
+stored_secret() {
+  local p
+  for p in $PREFIX $LEGACY_PREFIXES; do
+    security find-generic-password -a "$USER" -s "$p$1" -w 2>/dev/null && return 0
+  done
+  return 1
+}
+
+# The managed API key Claude wrote for a Console login, if there is one.
+current_api_key() {
+  security find-generic-password -a "$USER" -s "$API_SLOT" -w 2>/dev/null
+}
+
+stored_api_key() {
+  security find-generic-password -a "$USER" -s "$API_PREFIX$1" -w 2>/dev/null
+}
+
+# Writes the live Console API key, or removes it when $1 is empty. Claude
+# prefers this key over a subscription login, so a plan account only works
+# once the key is gone.
+set_current_api_key() {
+  if [[ -z ${1-} ]]; then
+    security delete-generic-password -a "$USER" -s "$API_SLOT" >/dev/null 2>&1
+    return 0
+  fi
+  security add-generic-password -U -a "$USER" -s "$API_SLOT" -l "Claude Code" -w "$1"
+}
+
+# A Console account bills prepaid API credits. Plan accounts are subscriptions.
+api_account() {
+  [[ $(meta "$1" billing) == api ]] && return 0
+  [[ -f $STORE/$1.json ]] || return 1
+  [[ $(jq -r '.billingType // empty' "$STORE/$1.json" 2>/dev/null) == prepaid ]]
+}
+
+# True when the account has a Claude.ai OAuth access token, as a subscription
+# does and as a keyless Console sign-in does. A managed API key has none.
+account_has_oauth() {
+  local secret="" tok
+  if [[ $1 == $(current_key) ]]; then
+    secret=$(security find-generic-password -a "$USER" -s "$SLOT" -w 2>/dev/null) || secret=""
+    tok=$(print -r -- "$secret" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
+    [[ -n $tok ]] && return 0
+  fi
+  secret=$(stored_secret "$1" 2>/dev/null) || return 1
+  tok=$(print -r -- "$secret" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
+  [[ -n $tok ]]
+}
+
+# True when this exact API key is already stored under some saved account.
+api_key_copied() {
+  local k live=$1 saved
+  [[ -n $live ]] || return 1
+  for k in ${(f)"$(saved_keys)"}; do
+    saved=$(stored_api_key "$k" 2>/dev/null) || continue
+    [[ $saved == $live ]] && return 0
+  done
+  return 1
+}
+
+# Copies the live Console key onto the current prepaid account when that is
+# the only copy. Returns 1 when a live key exists and nowhere stores it, so
+# the caller can refuse to delete it.
+ensure_api_key_saved() {
+  local live cur
+  live=$(current_api_key 2>/dev/null) || live=""
+  [[ -n $live ]] || return 0
+  api_key_copied "$live" && return 0
+  cur=$(current_key)
+  [[ -n $cur ]] && api_account "$cur" || return 1
+  security add-generic-password -U -a "$USER" -s "$API_PREFIX$cur" \
+    -l "Claude Code API key $cur" -w "$live"
+}
+
+# "25", "25.50" or "$25" as integer microdollars (millionths of a dollar).
+dollars_to_micro() {
+  local s=${1#\$} whole frac
+  [[ $s == [0-9]##(|.[0-9]##) ]] || return 1
+  whole=${s%%.*}
+  if [[ $s == *.* ]]; then frac=${s#*.}; else frac=; fi
+  frac=${frac}000000
+  frac=${frac[1,6]}
+  print -r -- $(( whole * 1000000 + 10#$frac ))
+}
+
+# A microdollar count as $1.23. Amounts under a cent stay "<$0.01".
+micro_dollars() {
+  local n=${1:-0} d c
+  [[ $n == <-> ]] || n=0
+  if (( n > 0 && n < 10000 )); then
+    print '<$0.01'
+    return
+  fi
+  c=$(( (n + 5000) / 10000 ))
+  d=$(( c / 100 ))
+  c=$(( c % 100 ))
+  printf '$%d.%02d\n' $d $c
+}
+
+# Copies the active login into its own Keychain entry. Prints the key on success.
+save_current() {
+  local key secret old info billing apikey oldapi
+  key=$(current_key)
+  [[ -n $key ]] || { warn "not logged in, nothing to save"; return 0 }
+  secret=$(security find-generic-password -a "$USER" -s "$SLOT" -w 2>/dev/null) \
+    || { warn "no Claude Code credentials in the Keychain"; return 0 }
+  old=$(security find-generic-password -a "$USER" -s "$PREFIX$key" -w 2>/dev/null) || old=""
+  if [[ $old != $secret ]]; then
+    security add-generic-password -U -a "$USER" -s "$PREFIX$key" \
+      -l "Claude Code account $key" -w "$secret" || { warn "couldn't write to the Keychain"; return 1 }
+  fi
+  jq '.oauthAccount' "$CONFIG" > "$STORE/$key.json" || { warn "couldn't write $STORE/$key.json"; return 1 }
+  billing=$(jq -r '.billingType // empty' "$STORE/$key.json")
+  apikey=$(current_api_key 2>/dev/null) || apikey=""
+  if [[ $billing == prepaid ]]; then
+    # The managed key is the whole login. Keep it before anything clears the slot.
+    if [[ -n $apikey ]]; then
+      oldapi=$(stored_api_key "$key" 2>/dev/null) || oldapi=""
+      if [[ $oldapi != $apikey ]]; then
+        security add-generic-password -U -a "$USER" -s "$API_PREFIX$key" \
+          -l "Claude Code API key $key" -w "$apikey" || { warn "couldn't save the API key"; return 1 }
+      fi
+    fi
+    meta_set "$key" '.billing = "api" | del(.plan, .tier)' || { warn "couldn't save the account details"; return 1 }
+  else
+    info=$(print -r -- "$secret" | jq -c '.claudeAiOauth // {}
+      | {plan: .subscriptionType, tier: .rateLimitTier} | with_entries(select(.value != null))' 2>/dev/null)
+    [[ -n $info ]] || info='{}'
+    meta_set "$key" --argjson i "$info" '. + $i | del(.billing)' || { warn "couldn't save the account details"; return 1 }
+    # A plan login must not keep billing the Console. Drop the live key only
+    # after a copy exists, so a failed save can't throw the login away.
+    if [[ -n $apikey ]] && api_key_copied "$apikey"; then
+      set_current_api_key "" || { warn "couldn't clear the Console API key"; return 1 }
+    fi
+  fi
+  print -r -- "$key"
+}
+
+resolve() {
+  local q=${1:l} k al
+  local -a keys=( ${(f)"$(saved_keys)"} ) hits
+  for k in $keys; do
+    al=${$(meta "$k" alias):l}
+    [[ ${k:l} == $q || ${${k%\#*}:l} == $q || ( -n $al && $al == $q ) ]] && hits+=( $k )
+  done
+  if (( ! $#hits )); then
+    for k in $keys; do
+      al=${$(meta "$k" alias):l}
+      [[ ${k:l} == *${q}* || ( -n $al && $al == *${q}* ) ]] && hits+=( $k )
+    done
+  fi
+  (( $#hits )) || die "no saved account matches ${B}$1${R}. Run ${A}oof ls${R} to see them."
+  (( $#hits == 1 )) || die "${B}$1${R} matches $#hits accounts (${(j:, :)${(@)hits%\#*}}). Be more specific."
+  print -r -- "$hits[1]"
+}
+
+switch_to() {
+  local key=$1 secret tmp apikey
+  secret=$(stored_secret "$key") \
+    || die "no saved credentials for $(name_of "$key"). Run ${A}oof login${R} to sign in again."
+  # Never overwrite or delete the live Console key until a copy is stored.
+  ensure_api_key_saved \
+    || die "the Console API key isn't saved anywhere yet, so switching would lose it"
+  if api_account "$key"; then
+    apikey=$(stored_api_key "$key" 2>/dev/null) || apikey=""
+    if [[ -n $apikey ]]; then
+      # The key goes in first, so a half-finished switch still bills this account.
+      set_current_api_key "$apikey" || die "couldn't write the API key to the Keychain"
+    elif account_has_oauth "$key"; then
+      set_current_api_key "" || die "couldn't clear the Console API key"
+    else
+      die "no saved API key for $(name_of "$key"). Run ${A}oof login --console${R} to sign in again."
+    fi
+  else
+    # Leave the key in place and Claude keeps billing the Console org.
+    set_current_api_key "" || die "couldn't clear the Console API key"
+  fi
+  security add-generic-password -U -a "$USER" -s "$SLOT" -w "$secret" \
+    || die "couldn't write to the Keychain"
+  tmp=$(mktemp "$CONFIG.oof.XXXXXX")
+  jq --slurpfile acct "$STORE/$key.json" '.oauthAccount = $acct[0]' "$CONFIG" > "$tmp" \
+    || { rm -f "$tmp"; die "couldn't update $CONFIG"; }
+  chmod "$(stat -f %Lp "$CONFIG")" "$tmp"
+  mv "$tmp" "$CONFIG"
+  nudge_sessions
+}
+
+# Open claude sessions check for new credentials before each request. With
+# no .credentials.json they re-read the Keychain (cached for 30 seconds), so
+# they move to the new login on their own. If that file exists they only
+# look again when its mtime changes, so touch it.
+nudge_sessions() {
+  local f=${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.credentials.json
+  [[ -f $f ]] && touch "$f"
+  return 0
+}
+
+# ---------------------------------------------------------------- usage
+
+# Runs curl with its config on stdin so tokens stay out of the process list.
+# Prints the body, then the HTTP status on a line of its own.
+curl_cfg() {
+  curl -sS -m 15 -A "$USER_AGENT" -K - -w '\n%{http_code}' 2>/dev/null
+}
+
+# Trades a saved account's refresh token for a new access token. The old
+# refresh token stops working once it's used, so the result is saved at once,
+# and a lock keeps two oofs (say auto and status) from spending it twice.
+# On failure it prints "expired" when the login is dead for good, or else the
+# HTTP status, for refresh_why.
+refresh_secret() {
+  local fd out rc
+  : >> "$USAGE_DIR/$1.lock"
+  zsystem flock -t 30 -f fd "$USAGE_DIR/$1.lock" 2>/dev/null || return 1
+  out=$(refresh_locked "$@")
+  rc=$?
+  exec {fd}>&-
+  print -r -- "$out"
+  return rc
+}
+
+# Says why refresh_secret failed, given what it printed. Only a refresh token
+# Anthropic turned down means the login is gone. Anything else may pass.
+refresh_why() {
+  case $1 in
+    expired) print -r -- "this login has expired. Switch to it and run /login." ;;
+    429)     print -r -- "rate limited, so try again in a minute" ;;
+    000)     print -r -- "couldn't reach ${${TOKEN_URL#*://}%%/*}" ;;
+    *)       print -r -- "couldn't refresh this login${1:+ (HTTP $1)}, so try again in a minute" ;;
+  esac
+}
+
+refresh_locked() {
+  local key=$1 secret=$2 rt body out code new
+  # someone else may have refreshed it while we waited for the lock
+  out=$(stored_secret "$key")
+  if [[ -n $out && $out != $secret ]] \
+     && (( $(print -r -- "$out" | jq -r '.claudeAiOauth.expiresAt // 0') / 1000 > EPOCHSECONDS + 60 )); then
+    print -r -- "$out"
+    return 0
+  fi
+  rt=$(print -r -- "$secret" | jq -r '.claudeAiOauth.refreshToken // empty')
+  [[ -n $rt ]] || { print expired; return 1 }
+  body=$(jq -nc --arg rt "$rt" --arg id "$CLIENT_ID" \
+    '{grant_type: "refresh_token", refresh_token: $rt, client_id: $id}')
+  out=$(print -r -- "url = \"$TOKEN_URL\"
+header = \"Content-Type: application/json\"
+data = \"${body//\"/\\\"}\"" | curl_cfg)
+  code=${out##*$'\n'} out=${out%$'\n'*}
+  if [[ $code != 200 ]]; then
+    [[ $(print -r -- "$out" | jq -r '.error | strings' 2>/dev/null) == invalid_grant ]] \
+      && print expired || print -r -- "$code"
+    return 1
+  fi
+  new=$(print -r -- "$secret" | jq -c --argjson r "$out" '
+    .claudeAiOauth += {accessToken: $r.access_token, expiresAt: ((now + $r.expires_in) * 1000 | floor)}
+    | if $r.refresh_token then .claudeAiOauth.refreshToken = $r.refresh_token else . end
+    | if $r.refresh_token_expires_in then
+        .claudeAiOauth.refreshTokenExpiresAt = ((now + $r.refresh_token_expires_in) * 1000 | floor)
+      else . end
+    | if $r.scope then .claudeAiOauth.scopes = ($r.scope | split(" ")) else . end') || return 1
+  security add-generic-password -U -a "$USER" -s "$PREFIX$key" \
+    -l "Claude Code account $key" -w "$new" || return 1
+  print -r -- "$new"
+}
+
+# Estimates Console spend from Claude Code session logs since the cap was set.
+# Prints "<microdollars> <unpriced-messages>". The ledger remembers how far
+# each file was read, so a later run only continues from there. Prices come
+# from Claude's own model cache, in dollars per million tokens.
+tally_credits() {
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 - "$1" "$2" "$3" "$4" "$5" <<'PY'
+import datetime, fcntl, json, os, sys
+
+org, ledger_path, projects, config_path, credit_from = sys.argv[1:6]
+credit_from = int(credit_from or 0)
+
+def load_prices():
+    try:
+        with open(config_path) as f:
+            raw = json.load(f).get("additionalModelCostsCache") or {}
+    except (OSError, ValueError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+def price_for(prices, model, speed):
+    if not model or not isinstance(prices, dict):
+        return None
+    costs = prices.get(model)
+    if not isinstance(costs, dict):
+        best = ""
+        for key in prices:
+            if model.startswith(key) and len(key) > len(best):
+                best = key
+        costs = prices.get(best) if best else None
+    if not isinstance(costs, dict):
+        return None
+    if speed == "fast" and isinstance(costs.get("fast"), dict):
+        costs = costs["fast"]
+    return costs
+
+def micro_tokens(tokens, usd_per_million):
+    if not tokens or not usd_per_million:
+        return 0
+    return int(round(float(tokens) * float(usd_per_million)))
+
+def micro_each(count, usd):
+    if not count or not usd:
+        return 0
+    return int(round(float(count) * float(usd) * 1000000))
+
+def epoch(ts):
+    if not isinstance(ts, str) or len(ts) < 20:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+def message_cost(obj, prices):
+    msg = obj.get("message") or {}
+    usage = msg.get("usage") or {}
+    if not usage:
+        return 0, False
+    costs = price_for(prices, msg.get("model") or obj.get("requestedModel") or "", usage.get("speed"))
+    if not costs:
+        return 0, True
+    cc = usage.get("cache_creation") or {}
+    w5 = int(cc.get("ephemeral_5m_input_tokens") or 0)
+    w1 = int(cc.get("ephemeral_1h_input_tokens") or 0)
+    if w5 == 0 and w1 == 0:
+        w5 = int(usage.get("cache_creation_input_tokens") or 0)
+    tools = usage.get("server_tool_use") or {}
+    micro = (
+        micro_tokens(usage.get("input_tokens"), costs.get("inputTokens"))
+        + micro_tokens(usage.get("output_tokens"), costs.get("outputTokens"))
+        + micro_tokens(w5, costs.get("promptCacheWriteTokens"))
+        + micro_tokens(w1, costs.get("promptCacheWrite1hTokens"))
+        + micro_tokens(usage.get("cache_read_input_tokens"), costs.get("promptCacheReadTokens"))
+        + micro_each(tools.get("web_search_requests"), costs.get("webSearchRequests"))
+    )
+    return micro, False
+
+prices = load_prices()
+os.makedirs(os.path.dirname(ledger_path) or ".", exist_ok=True)
+lockfd = os.open(ledger_path + ".lock", os.O_CREAT | os.O_RDWR, 0o600)
+fcntl.flock(lockfd, fcntl.LOCK_EX)
+try:
+    try:
+        with open(ledger_path) as f:
+            ledger = json.load(f)
+    except (OSError, ValueError):
+        ledger = {}
+    files = ledger.get("files")
+    if not isinstance(files, dict):
+        files = {}
+    paths = []
+    if os.path.isdir(projects):
+        for root, dirs, names in os.walk(projects):
+            dirs[:] = [d for d in dirs if d != ".git"]
+            for name in names:
+                if name.endswith(".jsonl"):
+                    paths.append(os.path.join(root, name))
+    for path in paths:
+        try:
+            st = os.stat(path)
+        except OSError:
+            continue
+        prev = files.get(path) if isinstance(files.get(path), dict) else None
+        if st.st_mtime < credit_from and prev is None:
+            continue
+        offset = int(prev.get("offset") or 0) if prev else 0
+        seen = prev.get("org") or "" if prev else ""
+        micro = int(prev.get("micro") or 0) if prev else 0
+        unpriced = int(prev.get("unpriced") or 0) if prev else 0
+        if prev and offset == st.st_size and int(prev.get("size") or -1) == st.st_size:
+            continue
+        if offset > st.st_size:
+            offset, seen, micro, unpriced = 0, "", 0, 0
+        try:
+            fh = open(path, "rb")
+        except OSError:
+            continue
+        with fh:
+            fh.seek(offset)
+            while True:
+                pos = fh.tell()
+                line = fh.readline()
+                if not line:
+                    break
+                if not line.endswith(b"\n"):
+                    break
+                offset = fh.tell()
+                try:
+                    obj = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(obj, dict):
+                    continue
+                if obj.get("type") == "session-owner":
+                    seen = obj.get("organizationUuid") or ""
+                    continue
+                if obj.get("type") != "assistant" or seen != org:
+                    continue
+                ts = epoch(obj.get("timestamp"))
+                if ts is None or ts < credit_from:
+                    continue
+                add, unknown = message_cost(obj, prices)
+                micro += add
+                if unknown:
+                    unpriced += 1
+        files[path] = {"offset": offset, "size": st.st_size, "org": seen, "micro": micro, "unpriced": unpriced}
+    total = sum(int(v.get("micro") or 0) for v in files.values() if isinstance(v, dict))
+    unknown = sum(int(v.get("unpriced") or 0) for v in files.values() if isinstance(v, dict))
+    tmp = ledger_path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({"files": files}, f)
+    os.replace(tmp, ledger_path)
+    print(f"{total} {unknown}")
+finally:
+    fcntl.flock(lockfd, fcntl.LOCK_UN)
+    os.close(lockfd)
+PY
+}
+
+# Writes the usage reply for a Console account. With no cap the row carries no
+# percent, so it doesn't look like a free plan. With a cap the percent is the
+# estimated spend against that cap, and the meter starts the moment the cap is
+# set so older sessions are left alone.
+write_credit_usage() {
+  local dest=$1 key=$2 limit from used unpriced note pct sev org projects out
+  limit=$(meta "$key" creditLimitMicro)
+  from=$(meta "$key" creditFrom)
+  if [[ -z $limit ]]; then
+    used=$(meta "$key" creditUsedMicro)
+    if [[ -n $used && $used != 0 ]]; then
+      note="API · est. $(micro_dollars "$used") used · no cap"
+    else
+      note="API · no cap"
+    fi
+    jq -nc --arg note "$note" '{limits: [{kind: "credits", group: "credits", percent: null,
+      severity: "normal", note: $note, resets_at: null}]}' > "$dest"
+    return 0
+  fi
+  if [[ -z $from ]]; then
+    from=$EPOCHSECONDS
+    meta_set "$key" --argjson t "$from" '.creditFrom = $t' || true
+  fi
+  org=$(jq -r '.organizationUuid // empty' "$STORE/$key.json" 2>/dev/null)
+  projects=${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects
+  if ! out=$(tally_credits "$org" "$USAGE_DIR/$key.credits.json" "$projects" "$CONFIG" "$from"); then
+    print -r -- "!couldn't estimate API spend" > "$dest"
+    return 0
+  fi
+  used=${out%% *}
+  unpriced=${out##* }
+  [[ $used == <-> ]] || used=0
+  [[ $unpriced == <-> ]] || unpriced=0
+  meta_set "$key" --argjson u "$used" '.creditUsedMicro = $u' || true
+  if (( limit <= 0 )); then pct=100
+  else
+    pct=$(( used * 100 / limit ))
+    (( pct > 100 )) && pct=100
+  fi
+  if (( pct >= 100 )); then sev=exceeded; else sev=normal; fi
+  note="est. $(micro_dollars "$used") of $(micro_dollars "$limit")"
+  (( unpriced > 0 )) && note+=" · $unpriced unpriced"
+  jq -nc --argjson pct "$pct" --arg sev "$sev" --arg note "$note" \
+    '{limits: [{kind: "credits", group: "credits", percent: $pct, severity: $sev, note: $note, resets_at: null}]}' \
+    > "$dest"
+}
+
+# Checks a Console account's managed key, then writes the credit estimate.
+# Returns 1 when the account has no key but does have an OAuth token, so the
+# caller can try the ordinary usage endpoint (a keyless Console sign-in).
+fetch_api_usage() {
+  local dest=$1 key=$2 active=$3 apikey="" out code
+  if (( active )); then
+    apikey=$(current_api_key 2>/dev/null) || apikey=""
+  fi
+  [[ -n $apikey ]] || apikey=$(stored_api_key "$key" 2>/dev/null) || apikey=""
+  if [[ -z $apikey ]]; then
+    account_has_oauth "$key" && return 1
+    print -r -- "!no saved API key. Run oof login --console to sign in again." > "$dest"
+    return 0
+  fi
+  # A regular key can't read the Console balance. This only checks the key.
+  out=$(print -r -- "url = \"https://api.anthropic.com/v1/organizations/me\"
+header = \"x-api-key: $apikey\"
+header = \"anthropic-version: 2023-06-01\"" | curl_cfg)
+  code=${out##*$'\n'}
+  case $code in
+    200) write_credit_usage "$dest" "$key" ;;
+    401) print -r -- "!Anthropic rejected this API key. Run oof login --console to sign in again." > "$dest" ;;
+    429) print -r -- "!rate limited, so try again in a minute" > "$dest" ;;
+    000) print -r -- "!couldn't reach api.anthropic.com" > "$dest" ;;
+    *)   print -r -- "!couldn't check the API key (HTTP $code)" > "$dest" ;;
+  esac
+  return 0
+}
+
+# Writes one account's usage JSON to $1, or "!<reason>" when it can't get it.
+# The active login is read from claude's own slot and never refreshed here, so
+# a running claude session doesn't race us for the same refresh token.
+fetch_usage() {
+  local dest=$1 key=$2 active=$3 secret tok exp out code tries=0 msg
+  if api_account "$key"; then
+    # 0 means the API path wrote the file. 1 means fall through to OAuth.
+    fetch_api_usage "$dest" "$key" "$active" && return 0
+  fi
+  if (( active )); then
+    secret=$(security find-generic-password -a "$USER" -s "$SLOT" -w 2>/dev/null)
+  else
+    secret=$(stored_secret "$key")
+  fi
+  [[ -n $secret ]] || { print -r -- "!no saved credentials. Run oof login to sign in again." > $dest; return }
+  exp=$(print -r -- "$secret" | jq -r '.claudeAiOauth.expiresAt // 0')
+  while true; do
+    if (( exp / 1000 < EPOCHSECONDS + 60 )); then
+      if (( active )); then
+        print -r -- "!the token has expired. Start claude and it will refresh it." > $dest
+        return
+      fi
+      secret=$(refresh_secret "$key" "$secret") \
+        || { print -r -- "!$(refresh_why "$secret")" > $dest; return }
+      # lets oof auto log the refresh
+      : > "${dest%.json}.refreshed"
+    fi
+    tok=$(print -r -- "$secret" | jq -r '.claudeAiOauth.accessToken // empty')
+    [[ -n $tok ]] || { print -r -- "!no saved credentials. Run oof login to sign in again." > $dest; return }
+    out=$(print -r -- "url = \"$USAGE_URL\"
+header = \"Authorization: Bearer $tok\"
+header = \"anthropic-beta: oauth-2025-04-20\"" | curl_cfg)
+    code=${out##*$'\n'} out=${out%$'\n'*}
+    # a token can be revoked before it expires, so a 401 gets one refresh and retry
+    if [[ $code == 401 ]] && (( ! active && ! tries++ )); then exp=0; continue; fi
+    break
+  done
+  case $code in
+    200) print -r -- "$out" > $dest ;;
+    400)
+      msg=$(print -r -- "$out" | jq -r '.error.message // .message // empty' 2>/dev/null)
+      if [[ ${msg:l} == *not\ applicable* ]]; then write_credit_usage "$dest" "$key"
+      else print -r -- "!couldn't fetch usage (HTTP $code)" > $dest; fi ;;
+    401) print -r -- "!Anthropic rejected this login. Switch to it and run /login." > $dest ;;
+    429) print -r -- "!rate limited, so try again in a minute" > $dest ;;
+    000) print -r -- "!couldn't reach api.anthropic.com" > $dest ;;
+    *)   print -r -- "!couldn't fetch usage (HTTP $code)" > $dest ;;
+  esac
+}
+
+# Folds the limits from API reply headers into a usage reply: the 5 hour window
+# becomes the session limit and the 7 day one the unscoped weekly limit.
+PROBE_MERGE='
+def pct($u; $s): if $s == "rejected" then 100 else ($u | tonumber * 1000 | round / 10) end;
+def iso($r): $r | tonumber | todate;
+def put($kinds; $key; $u; $r; $s):
+  if $u == "" then . else
+    .[$key] = ((.[$key] // {}) + {utilization: pct($u; $s), resets_at: iso($r)})
+    | if (.limits | type) == "array" then
+        .limits |= map(if (.kind as $k | $kinds | index($k)) and .scope == null
+          then .percent = pct($u; $s) | .resets_at = iso($r)
+               | if $s == "rejected" then .severity = "exceeded" else . end
+          else . end)
+      else . end
+  end;
+put(["session"]; "five_hour"; $u5; $r5; $s5) | put(["weekly", "weekly_all"]; "seven_day"; $u7; $r7; $s7)'
+
+# Reads the active login's limits off the headers of a one token request to
+# the smallest model. The usage endpoint rate limits hard, but every API reply
+# carries these. It costs a sliver of usage, so oof auto only sends it while
+# the account's 5 hour window is already running. $1 is the last usage reply
+# to fold the new figures into. Prints the merged reply.
+probe_usage() {
+  local base=${1:-'{}'} secret tok body out line
+  local -A h
+  secret=$(security find-generic-password -a "$USER" -s "$SLOT" -w 2>/dev/null) || return 1
+  (( $(print -r -- "$secret" | jq -r '.claudeAiOauth.expiresAt // 0') / 1000 > EPOCHSECONDS + 30 )) || return 1
+  tok=$(print -r -- "$secret" | jq -r '.claudeAiOauth.accessToken // empty')
+  # OAuth requests are only served with claude's own system prompt
+  body=$(jq -nc --arg m "$PROBE_MODEL" '{model: $m, max_tokens: 1,
+    system: "You are Claude Code, Anthropic'\''s official CLI for Claude.",
+    messages: [{role: "user", content: "hi"}]}')
+  out=$(print -r -- "url = \"$MESSAGES_URL\"
+header = \"Authorization: Bearer $tok\"
+header = \"anthropic-beta: oauth-2025-04-20\"
+header = \"anthropic-version: 2023-06-01\"
+header = \"content-type: application/json\"
+data = \"${body//\"/\\\"}\"" | curl -sS -m 30 -K - -D - -o /dev/null 2>/dev/null) || return 1
+  for line in ${(f)out}; do
+    [[ ${${line%$'\r'}:l} == (#b)anthropic-ratelimit-unified-([a-z0-9]##)-(utilization|reset|status):\ #(*) ]] \
+      && h[$match[1]-$match[2]]=$match[3]
+  done
+  [[ -n ${h[5h-utilization]} && -n ${h[5h-reset]} ]] || return 1
+  print -r -- "$base" | jq -c \
+    --arg u5 "${h[5h-utilization]}" --arg r5 "${h[5h-reset]}" --arg s5 "${h[5h-status]}" \
+    --arg u7 "${h[7d-utilization]}" --arg r7 "${h[7d-reset]}" --arg s7 "${h[7d-status]}" "$PROBE_MERGE"
+}
+
+# Turns a usage reply into one line per limit: label, percent, severity, reset
+# time (epoch), note, group (session, weekly or spend) and the model it's scoped
+# to, separated by \x1f. Newer replies carry a generic "limits" list. Older ones
+# only have the fixed five_hour/seven_day fields.
+USAGE_ROWS='
+def epoch: try (sub("\\.[0-9]+"; "") | sub("(\\+00:00|Z)$"; "Z") | fromdateiso8601 | floor) catch 0;
+def title: gsub("_"; " ") | (.[:1] | ascii_upcase) + .[1:];
+def scope_name:
+  .scope // {} | (.model | objects | .display_name // .id) // (.surface | objects | .display_name)
+  // (.surface | strings) // "";
+def money:
+  (.amount_minor / pow(10; .exponent // 2) * 100 | round) as $c
+  | (if .currency == "USD" then "$" else "" end)
+    + "\($c / 100 | floor).\($c % 100 | tostring | if length < 2 then "0" + . else . end)"
+    + (if .currency == "USD" or .currency == null then "" else " " + .currency end);
+( if (.limits | type) == "array" and (.limits | length) > 0 then
+    .limits[] | scope_name as $s | [
+      ({session: "Session", weekly: "Weekly", weekly_all: "Weekly", weekly_scoped: "Weekly"}[.kind] // (.kind | title))
+        + (if $s != "" then " " + $s else "" end),
+      (if .percent == null then "" else (.percent | round | tostring) end),
+      (.severity // ""), (.resets_at | epoch), (.note // ""),
+      (.group // (if .kind == "session" then "session" elif (.kind | startswith("weekly")) then "weekly" else .kind end)),
+      $s
+    ]
+  else
+    [["five_hour", "Session", "session", ""], ["seven_day", "Weekly", "weekly", ""],
+     ["seven_day_opus", "Weekly Opus", "weekly", "Opus"],
+     ["seven_day_sonnet", "Weekly Sonnet", "weekly", "Sonnet"]][] as [$k, $l, $g, $s]
+    | select(.[$k] != null) | .[$k]
+    | [$l, (.utilization // 0 | round), "", (.resets_at | epoch), "", $g, $s]
+  end ),
+( .spend // {} | select(.enabled == true) | [
+    "Extra usage",
+    (if .limit then (.percent // 0 | round) else "" end),
+    (.severity // ""), 0,
+    ((.used | try money catch "?") + (if .limit then " of " + (.limit | try money catch "?") else " used" end)),
+    "spend", ""
+  ] )
+| map(tostring) | join("\u001f")'
+
+repeat_str() { local s=""; repeat $1 s+=$2; print -rn -- "$s" }
+
+# "in 4h 10m", "Wed 11:30" and so on, for a time in the future.
+when() {
+  local s=$(( $1 - EPOCHSECONDS ))
+  local m=$(( s % 3600 / 60 ))
+  if   (( s <= 0 ));      then print "now"
+  elif (( s < 60 ));      then print "in under a minute"
+  elif (( s < 3600 ));    then print "in $(( s / 60 ))m"
+  elif (( s < 86400 && m == 0 )); then print "in $(( s / 3600 ))h"
+  elif (( s < 86400 ));   then print "in $(( s / 3600 ))h ${m}m"
+  elif (( s < 6 * 86400 )); then strftime '%a %H:%M' $1
+  else                         strftime '%-d %b %H:%M' $1
+  fi
+}
+
+# The model whose limits count, which decides whether a model-scoped limit
+# (like a weekly Fable cap) matters: OOF_MODEL, else oof set model, else the
+# model claude starts with. "all" counts every limit, and prints nothing.
+model_name() {
+  local m=${OOF_MODEL:-${ANTHROPIC_MODEL:-}}
+  [[ -n $m ]] || m=$(setting model)
+  [[ -n $m ]] || m=$(claude_model)
+  [[ $m == all ]] || print -r -- "$m"
+}
+
+# The model claude itself starts with.
+claude_model() {
+  jq -r '.model // empty' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" 2>/dev/null
+}
+
+# True when a limit scoped to model $1 applies to model $2. Unscoped limits
+# always apply, and so does everything when the model isn't known.
+relevant() { [[ -z $1 || -z $2 || ${2:l} == *${${1%% *}:l}* ]] }
+
+# Makes sure the usage cache is fresh for the accounts at the given indices
+# into rk, fetching the stale ones in parallel. $1 is 1 to ignore the cache.
+load_usage() {
+  local fresh=$1 i f
+  local -a todo pids
+  shift
+  for i in "$@"; do
+    f=$USAGE_DIR/$rk[i].json
+    (( ! fresh )) && [[ -s $f && $(<$f) != '!'* ]] \
+      && (( EPOCHSECONDS - $(zstat +mtime "$f") < USAGE_TTL )) && continue
+    todo+=( $i )
+  done
+  (( $#todo )) || return 0
+  [[ -t 2 ]] && print -nu2 -r -- "  ${D}checking usage…${R}"
+  for i in $todo; do fetch_usage "$USAGE_DIR/$rk[i].json" "$rk[i]" "$ra[i]" & pids+=( $! ); done
+  # just these, since a bare wait would also wait on oof auto's caffeinate
+  wait $pids
+  [[ -t 2 ]] && print -nu2 $'\r\e[2K'
+  for i in $todo; do
+    f=$USAGE_DIR/$rk[i].json
+    [[ -s $f ]] || print -r -- "!couldn't fetch usage" > $f
+  done
+}
+
+# Ranks the accounts at the given indices into rk from their cached usage.
+# Fills, per index: us status (0 fine, 1 nearly full, 2 unknown, 3 blocked),
+# uf when a blocked account frees up, uw a one-line summary, ux a tip when
+# weekly usage is about to reset unused, and ur the parsed limit rows.
+# order lists the indices best first: earliest deadline first, so headroom
+# that resets soonest gets used before it's lost.
+rank() {
+  local i f line lbl pct sev rst note grp scope st free wdl sdl top topl credit_note model=$(model_name)
+  local -a keys
+  us=() uf=() uw=() ux=() ur=() order=()
+  for i in "$@"; do
+    f=$USAGE_DIR/$rk[i].json
+    if [[ ! -s $f || $(<$f) == '!'* ]]; then
+      us[i]=2 uw[i]=${$(<$f 2>/dev/null)#!}
+      keys+=( "3:000000000000:000000000000:$i" )
+      continue
+    fi
+    ur[i]=$(jq -r "$USAGE_ROWS" "$f" 2>/dev/null) \
+      || { us[i]=2 uw[i]="couldn't read the usage reply"; keys+=( "3:000000000000:000000000000:$i" ); continue }
+    st=0 free=0 top=-1 topl="" credit_note=""
+    wdl=999999999999 sdl=$(( EPOCHSECONDS + 5 * 3600 ))
+    for line in ${(f)ur[i]}; do
+      IFS=$'\x1f' read -r lbl pct sev rst note grp scope <<< "$line"
+      # A Console account with no cap has a null percent. Keep its note, and
+      # don't turn that into a 0% plan bar.
+      if [[ $grp == credits && -z $pct ]]; then
+        [[ -n $note ]] && credit_note=$note
+        continue
+      fi
+      [[ $grp == credits && -n $note ]] && credit_note=$note
+      [[ $grp == spend || -z $pct ]] && continue
+      relevant "$scope" "$model" || continue
+      if (( pct >= 100 )) || [[ ${sev:l} == (locked|exceeded|blocked) ]]; then
+        st=3; (( rst > free )) && free=$rst
+      elif (( pct >= RESERVE && st == 0 )); then
+        st=1
+      fi
+      (( pct > top )) && top=$pct topl="$lbl $pct%"
+      if [[ $grp == weekly ]] && (( pct < 100 && rst > 0 )); then
+        (( rst < wdl )) && wdl=$rst
+        (( pct <= 70 && rst - EPOCHSECONDS < 86400 )) \
+          && ux[i]="$(( 100 - pct ))% of its ${lbl:l} limit left, and it resets $(when $rst)"
+      fi
+      # a running window's headroom expires at its reset, so drain it before
+      # starting a fresh 5 hour clock somewhere else
+      [[ $grp == session ]] && (( rst > 0 )) && sdl=$rst
+    done
+    us[i]=$st uf[i]=$free
+    if [[ -n $credit_note ]]; then uw[i]=$credit_note
+    elif (( rb[i] && st < 2 )); then uw[i]=${topl:-"API · no cap"}
+    else uw[i]=$topl; fi
+    (( st == 3 && free )) && uw[i]+=" · free $(when $free)"
+    # Plan accounts sort ahead of Console accounts, then unknowns, then blocked
+    # ones. A Console account under its cap sorts by how full the cap is.
+    if (( st == 3 )); then keys+=( "4:${(l:12::0:)free}:000000000000:$i" )
+    elif (( st == 2 )); then keys+=( "3:000000000000:000000000000:$i" )
+    elif (( rb[i] )); then
+      (( top < 0 )) && top=0
+      keys+=( "2:${(l:12::0:)top}:000000000000:$i" )
+    else keys+=( "$st:${(l:12::0:)wdl}:${(l:12::0:)sdl}:$i" ); fi
+  done
+  order=( ${${(o)keys}##*:} )
+}
+
+# Prints the index to be on: the active account while it's fine, otherwise
+# the top-ranked one, unless that's no better than where you already are.
+# A Console account with room is not a reason to stay while a plan account
+# can still be used, because the Console account bills the API.
+pick_best() {
+  local c=${ra[(Ie)1]} b=$order[1]
+  if (( c && rb[c] && b && b != c && us[b] < 2 )); then
+    print $b
+    return
+  fi
+  if (( c )) && [[ -n $us[c] ]] && (( us[c] == 0 || us[b] >= us[c] )); then print $c
+  else print $b; fi
+}
+
+# Sets REPLY to g, y or r (green, yellow, red) for how full a limit is, from
+# its percent and the severity Anthropic gives it. It's empty for a limit that
+# doesn't apply to your model ($3 = 0). The menu bar widget uses it too.
+tone() {
+  REPLY=""
+  (( ${3:-1} )) || return 0
+  if   (( $1 >= 90 )); then REPLY=r
+  elif (( $1 >= 70 )); then REPLY=y
+  else                      REPLY=g; fi
+  case ${2:l} in
+    warning|approaching|high) [[ $REPLY == g ]] && REPLY=y ;;
+    critical|exceeded|blocked|locked) REPLY=r ;;
+  esac
+  return 0
+}
+
+# Prints one limit as a labelled bar. $1 is the label column width. A limit
+# that doesn't apply to your model ($7 = 0) is drawn dim.
+usage_row() {
+  local w=$1 lbl=$2 pct=$3 sev=$4 rst=$5 note=$6 applies=${7:-1} col fill bar
+  if [[ -z $pct ]]; then
+    print -r -- "      ${(r:w:)lbl}  ${(r:27:):-}  ${D}$note${R}"
+    return
+  fi
+  tone $pct "$sev" $applies
+  case $REPLY in
+    r) col=$RED ;;
+    y) col=$Y ;;
+    g) col=$G ;;
+    *) col=$D ;;
+  esac
+  (( applies )) || lbl="${D}${(r:w:)lbl}${R}"
+  fill=$(( (pct > 100 ? 100 : pct) * 20 / 100 ))
+  (( pct > 0 && fill == 0 )) && fill=1
+  bar="${col}$(repeat_str $fill █)${R}${D}$(repeat_str $(( 20 - fill )) ░)${R}"
+  [[ -n $note ]] || { (( rst )) && note="resets $(when $rst)" }
+  (( applies )) && lbl=${(r:w:)lbl}
+  print -r -- "      $lbl  $bar  ${col}${(l:4:)pct}%${R}  ${D}$note${R}"
+}
+
+# PIDs of running claude sessions, whether started as claude or straight from
+# an installed version.
+claude_pids() {
+  { pgrep -x claude; pgrep -f '/claude/versions/' } 2>/dev/null | sort -u
+}
+
+warn_others() {
+  local n=$(claude_pids | wc -l | tr -d ' ')
+  (( n > 0 )) || return 0
+  hint "$n open claude session$( (( n > 1 )) && print s) will move to it on the next request, within about 30 seconds"
+}
+
+# Fills parallel arrays for the saved accounts: rk key, rn short name, re email,
+# rp plan, rw last active, ra 1 if active, rb 1 if it bills the API.
+# wn/we/wp are the column widths.
+collect() {
+  local cur=$1 k al pl ti bi em api
+  local -A seen
+  rk=( ${(f)"$(saved_keys)"} ) rn=() re=() rp=() rw=() ra=() rb=()
+  wn=0 we=0 wp=0
+  for k in $rk; do (( ++seen[${k%\#*}] )); done
+  for k in $rk; do
+    al= pl= ti= bi= api=0
+    [[ -f $META/$k.json ]] && IFS=$'\x1f' read -r al pl ti bi <<< \
+      "$(jq -r '[.alias // "", .plan // "", .tier // "", .billing // ""] | join("\u001f")' "$META/$k.json")"
+    em=${k%\#*}
+    (( seen[$em] > 1 )) && em+=" #${k##*\#}"
+    pl=$(plan_label "$pl" "$ti")
+    if [[ $bi == api ]] || [[ $(jq -r '.billingType // empty' "$STORE/$k.json" 2>/dev/null) == prepaid ]]; then
+      api=1
+      pl=API
+    fi
+    rb+=( $api )
+    rn+=( "$al" ) re+=( "$em" ) rp+=( "$pl" )
+    if [[ $k == $cur ]]; then
+      ra+=( 1 ) rw+=( "active" )
+    else
+      ra+=( 0 ) rw+=( "$(ago "$(zstat +mtime "$STORE/$k.json")")" )
+    fi
+    (( ${#al} > wn )) && wn=${#al}
+    (( ${#em} > we )) && we=${#em}
+    (( ${#pl} > wp )) && wp=${#pl}
+  done
+  return 0
+}
+
+fmt_row() {
+  local i=$1 sel=${2:-0} ptr mark nm em pl wh line
+  nm=${(r:wn:)rn[i]} em=${(r:we:)re[i]} pl=${(r:wp:)rp[i]} wh=$rw[i]
+  if (( ${with_usage:-0} )); then
+    case $us[i] in
+      0) wh="${G}$uw[i]${R}" ;;
+      1) wh="${Y}$uw[i]${R}" ;;
+      3) wh="${RED}$uw[i]${R}" ;;
+      *) wh="${D}usage unknown${R}" ;;
+    esac
+  elif (( ra[i] )); then wh="${G}$wh${R}"
+  else                   wh="${D}$wh${R}"; fi
+  if (( ra[i] )); then mark="${G}●${R}"
+  else                 mark="${D}○${R}"; fi
+  if (( sel )); then ptr="${A}${B}❯${R}" nm="${A}${B}$nm${R}" em="${B}$em${R}"
+  else               ptr=" "            nm="${A}$nm${R}"; fi
+  line="  $ptr $mark  "
+  (( wn )) && line+="$nm   "
+  line+="$em   "
+  (( wp )) && line+="${A2}$pl${R}   "
+  print -r -- "$line$wh"
+}
+
+# Interactive account menu on /dev/tty, showing each account's usage with the
+# best one selected. Prints the chosen key.
+choose() {
+  local cur=$1 fresh=${2:-0} n sel k rest saved
+  exec 3<>/dev/tty 2>/dev/null || die "pick needs a terminal"
+  colors_for 3
+  collect "$cur"
+  n=$#rk
+  load_usage $fresh {1..$n}
+  rank {1..$n}
+  with_usage=1
+  sel=$(pick_best)
+
+  saved=$(stty -g <&3)
+  restore() { stty "$saved" <&3 2>/dev/null; print -nu3 $'\e[?25h' }
+  clear_menu() { print -nu3 $'\e['"$(( n + 3 ))"$'A\e[J' }
+  draw() {
+    local i
+    for (( i = 1; i <= n; i++ )); do
+      print -u3 -r -- $'\e[2K'"$(fmt_row $i $(( i == sel )))"
+    done
+  }
+  trap 'restore; exit 130' INT TERM
+  stty -icanon -echo min 1 time 0 <&3
+  print -nu3 $'\e[?25l'
+
+  print -u3
+  print -u3 -r -- "  ${B}Switch account${R}    ${D}↑↓ move   1-9 jump   ⏎ select   esc cancel${R}"
+  print -u3
+  draw
+  while true; do
+    read -r -k1 -u3 k || { restore; exit 1 }
+    case $k in
+      $'\e')
+        rest=""
+        read -r -t 0.05 -k2 -u3 rest
+        case $rest in
+          '[A'|'OA') (( sel = sel > 1 ? sel - 1 : n )) ;;
+          '[B'|'OB') (( sel = sel < n ? sel + 1 : 1 )) ;;
+          '') clear_menu; restore; exit 130 ;;
+        esac ;;
+      k|K) (( sel = sel > 1 ? sel - 1 : n )) ;;
+      j|J) (( sel = sel < n ? sel + 1 : 1 )) ;;
+      [1-9]) (( k <= n )) && sel=$k ;;
+      $'\n'|$'\r') break ;;
+      q|Q) clear_menu; restore; exit 130 ;;
+    esac
+    print -nu3 $'\e['"$n"'A'
+    draw
+  done
+  clear_menu
+  restore
+  print -r -- "$rk[sel]"
+}
+
+# ---------------------------------------------------------------- auto
+#
+# The helpers below share cmd_auto's locals (zsh scoping is dynamic): good,
+# hist, fetched, saved_json, saved_at, slot_seen, dry and friends for state
+# kept across checks, and the per-check arrays filled by auto_tick.
+
+# "2h49m", "39m", "<1m" for a number of seconds.
+dur() {
+  local -i s
+  (( s = $1 > 0 ? $1 : 0 ))
+  if   (( s < 60 ));    then print "<1m"
+  elif (( s < 3600 ));  then print "$(( s / 60 ))m"
+  elif (( s < 86400 )); then print "$(( s / 3600 ))h$(( s % 3600 / 60 ))m"
+  else                       print "$(( s / 86400 ))d$(( s % 86400 / 3600 ))h"
+  fi
+}
+
+# Logs one line to the terminal and, without colours, to AUTO_LOG.
+alog() {
+  local tag=$1 col=$2 msg esc=$'\e'
+  shift 2
+  msg="$*"
+  print -r -- "${D}$(strftime '%H:%M:%S' $EPOCHSECONDS)${R}  ${col}${(r:6:)tag}${R}  $msg"
+  print -r -- "$(strftime '%Y-%m-%d %H:%M:%S' $EPOCHSECONDS)  ${(r:6:)tag}  ${msg//${esc}\[[0-9;]#m/}" >> $AUTO_LOG
+}
+
+# A follow-on line for the entry above it.
+amore() {
+  local msg="$*" esc=$'\e'
+  print -r -- "                  $msg"
+  print -r -- "                             ${msg//${esc}\[[0-9;]#m/}" >> $AUTO_LOG
+}
+
+notify() {
+  [[ ${OOF_AUTO_NOTIFY:-$(setting notify on)} == (0|off) ]] && return 0
+  osascript -e "display notification \"${1//\"/}\" with title \"oof auto\"" >/dev/null 2>&1 &!
+}
+
+# Prints "<email>#<org>" for an access token. Returns 1 when the token isn't
+# accepted (expired, say) and 2 when Anthropic won't say whose it is.
+token_owner() {
+  local out code
+  [[ -n $1 ]] || return 1
+  out=$(print -r -- "url = \"$PROFILE_URL\"
+header = \"Authorization: Bearer $1\"
+header = \"anthropic-beta: oauth-2025-04-20\"" | curl_cfg)
+  code=${out##*$'\n'} out=${out%$'\n'*}
+  [[ $code == 401 || $code == 000 ]] && return 1
+  [[ $code == 200 ]] || return 2
+  out=$(print -r -- "$out" | jq -r '(.account.email // .account.email_address // empty) as $e
+    | "\($e)#\((.organization.uuid // "none")[0:8])"' 2>/dev/null)
+  [[ -n $out ]] || return 2
+  print -r -- "$out"
+}
+
+# Makes sure the token in claude's slot belongs to the active account. A
+# claude session that was open when auto switched still holds the old
+# account's token. If it refreshes that token it writes it into the slot, and
+# the Stop hook then files it under the new account. The old account's saved
+# refresh token is dead by then, so this hands the token back to its owner
+# and puts the active account's own token back.
+auto_guard() {
+  local slot cur owner rc
+  slot=$(security find-generic-password -a "$USER" -s "$SLOT" -w 2>/dev/null) || return 0
+  [[ $slot == $slot_seen ]] && return 0
+  slot_seen=$slot
+  cur=$(current_key)
+  [[ -n $cur ]] || return 0
+  owner=$(token_owner "$(print -r -- "$slot" | jq -r '.claudeAiOauth.accessToken // empty')")
+  rc=$?
+  if (( rc )); then
+    if (( rc == 2 && ! noprofile )); then
+      noprofile=1
+      alog warn "$Y" "Anthropic won't say whose a token is, so a mixed-up login can't be caught"
+    fi
+    good[$cur]=$slot
+    return 0
+  fi
+  # oof switch writes the slot a moment before the config, so give it a second
+  if [[ $owner != $cur ]]; then
+    sleep 1
+    cur=$(current_key)
+  fi
+  if [[ $owner == $cur ]]; then
+    [[ -n ${good[$cur]} && ${good[$cur]} != $slot ]] && alog token "$G" "claude refreshed $(name_of "$cur")'s token, saved the new one"
+    good[$cur]=$slot
+    (( dry )) || save_current >/dev/null 2>&1
+    return 0
+  fi
+
+  alog fix "$Y" "claude's login holds $(name_of "$owner")'s token, but $(name_of "$cur") is the active account"
+  amore "a claude session that started on $(name_of "$owner") refreshed its token after a switch"
+  (( dry )) && { amore "dry run, so leaving it"; return 0 }
+  if [[ -f $STORE/$owner.json ]]; then
+    security add-generic-password -U -a "$USER" -s "$PREFIX$owner" \
+      -l "Claude Code account $owner" -w "$slot" && good[$owner]=$slot
+    amore "saved it back under $(name_of "$owner") so that login keeps working"
+  fi
+  if [[ -n ${good[$cur]} ]]; then
+    security add-generic-password -U -a "$USER" -s "$PREFIX$cur" \
+      -l "Claude Code account $cur" -w "${good[$cur]}"
+    security add-generic-password -U -a "$USER" -s "$SLOT" -w "${good[$cur]}"
+    nudge_sessions
+    slot_seen=${good[$cur]}
+    amore "put $(name_of "$cur")'s own token back"
+  elif [[ -f $STORE/$owner.json ]] && ( switch_to "$owner" ) 2>/dev/null; then
+    amore "$(name_of "$cur")'s token isn't on hand, so the active account is now $(name_of "$owner") to match"
+  else
+    amore "couldn't put this right. Run ${A}oof switch $(name_of "$cur")${R} by hand"
+  fi
+}
+
+# Nobody refreshes the active login while no claude is running, so auto does
+# it rather than lose sight of that account.
+auto_wake() {
+  local cur=$1 slot new
+  # A managed API key has no OAuth token to refresh. expiresAt 0 would warn every tick.
+  if api_account "$cur" && ! account_has_oauth "$cur"; then
+    return 0
+  fi
+  slot=$(security find-generic-password -a "$USER" -s "$SLOT" -w 2>/dev/null) || return 0
+  (( $(print -r -- "$slot" | jq -r '.claudeAiOauth.expiresAt // 0') / 1000 < EPOCHSECONDS + 120 )) || return 0
+  [[ -z $(claude_pids) ]] || return 0
+  (( dry )) && return 0
+  if new=$(refresh_secret "$cur" "$slot") \
+     && security add-generic-password -U -a "$USER" -s "$SLOT" -w "$new"; then
+    slot_seen=$new good[$cur]=$new
+    alog token "$G" "refreshed $(name_of "$cur")'s token, since no claude is running to do it"
+  else
+    alog warn "$Y" "couldn't refresh $(name_of "$cur")'s token. Start claude, or run /login in it"
+  fi
+}
+
+# Fetches usage for the accounts at the given indices into rk. While the
+# active account has a 5 hour window running, its session figures come from
+# probe_usage every time and the usage endpoint is only asked every
+# AUTO_OTHERS for the weekly ones. An account the endpoint rate limits is left
+# alone for 1, 2, 4, 8 and then 15 minutes. Whatever couldn't be refreshed
+# falls back to its last good reply, marked stale (ferr says why).
+auto_fetch() {
+  local i k f msg n
+  local -a ask probe
+  (( $# )) || return 0
+  for i in "$@"; do
+    k=$rk[i]
+    fetched[$k]=$EPOCHSECONDS
+    # A Console key has no session headers, and probing messages would spend the API.
+    if (( i == c && ! rb[i] && ${wend[$k]:-0} > EPOCHSECONDS )); then
+      probe+=( $i )
+      (( EPOCHSECONDS - ${asked[$k]:-0} < AUTO_OTHERS )) && continue
+    fi
+    (( EPOCHSECONDS < ${backoff[$k]:-0} )) && continue
+    ask+=( $i )
+  done
+
+  for i in $ask; do rm -f "$USAGE_DIR/$rk[i].refreshed"; done
+  (( $#ask )) && load_usage 1 $ask
+  for i in $ask; do
+    k=$rk[i] f=$USAGE_DIR/$rk[i].json
+    if [[ -e $USAGE_DIR/$k.refreshed ]]; then
+      rm -f "$USAGE_DIR/$k.refreshed"
+      alog token "$G" "refreshed $(name_of "$k")'s saved token"
+    fi
+    msg=$(<$f)
+    if [[ $msg != '!'* ]]; then
+      saved_json[$k]=$msg saved_at[$k]=$EPOCHSECONDS asked[$k]=$EPOCHSECONDS fresh[i]=1
+      tries[$k]=0 backoff[$k]=0
+      continue
+    fi
+    ferr[i]=${msg#!}
+    if [[ $msg == '!rate limited'* ]]; then
+      n=${tries[$k]:-0}
+      tries[$k]=$(( n + 1 ))
+      backoff[$k]=$(( EPOCHSECONDS + (n < 4 ? 60 << n : 900) ))
+    fi
+  done
+
+  # the active account can't be left unseen for long, so if the endpoint
+  # failed it gets probed even without a known window
+  if (( ${@[(Ie)$c]} && ! fresh[c] && ! ${probe[(Ie)$c]} && ! rb[c] )) \
+     && (( EPOCHSECONDS - ${saved_at[$rk[c]]:-0} > 300 )); then
+    probe+=( $c )
+  fi
+  for i in $probe; do
+    k=$rk[i]
+    if msg=$(probe_usage "${saved_json[$k]}"); then
+      saved_json[$k]=$msg saved_at[$k]=$EPOCHSECONDS fresh[i]=1 ferr[i]=""
+    else
+      [[ -n $ferr[i] ]] || ferr[i]="couldn't read its limits from the API"
+    fi
+  done
+
+  for i in "$@"; do
+    k=$rk[i] f=$USAGE_DIR/$rk[i].json
+    [[ -n ${saved_json[$k]} ]] || continue
+    print -r -- "${saved_json[$k]}" > $f
+    if (( ! fresh[i] )); then
+      touch -t "$(strftime '%Y%m%d%H%M.%S' ${saved_at[$k]})" "$f"
+      [[ -n $ferr[i] ]] || ferr[i]="rate limited, asking again $(when ${backoff[$k]:-$EPOCHSECONDS})"
+    fi
+  done
+}
+
+# Reads each account's ranked rows into tp/tl (the fullest limit that applies
+# and its label), sp/sr (the session: percent, and its reset, 0 when no 5 hour
+# window is running) and wkp/wkr (the fullest weekly limit and its reset).
+auto_read() {
+  local i line lbl pct sev rst note grp scope model=$(model_name)
+  for i in "$@"; do
+    tp[i]=0 tl[i]="" sp[i]="" sr[i]=0 wkp[i]="" wkr[i]=0
+    for line in ${(f)ur[i]}; do
+      IFS=$'\x1f' read -r lbl pct sev rst note grp scope <<< "$line"
+      [[ $grp == spend || -z $pct ]] && continue
+      relevant "$scope" "$model" || continue
+      (( pct >= tp[i] )) && tp[i]=$pct tl[i]=$lbl
+      if [[ $grp == session ]]; then
+        sp[i]=$pct
+        (( rst > EPOCHSECONDS )) && sr[i]=$rst
+      elif [[ $grp == weekly ]] && (( pct > ${wkp[i]:--1} )); then
+        wkp[i]=$pct wkr[i]=$rst
+      fi
+    done
+  done
+}
+
+# Sorts account i into a class, lower being a better place to be, with a key
+# that orders accounts within it:
+#   1  a 5 hour window is already running with room. Drain it before it
+#      resets, soonest reset first, rather than start a new clock elsewhere
+#      while this headroom expires.
+#   2  idle, but its weekly limit resets within a day with 30% or more unused
+#   3  idle, so using it starts a fresh 5 hour window. Most weekly room first.
+#   4  has room, but less than AUTO_ROOM percent
+#   7  a Console account under its cap. It bills the API, so it comes after
+#      every plan account and is only used when those are full or unreachable.
+#   8  full, or as good as, by when it frees up
+#   9  usage unknown
+auto_class() {
+  local i=$1 room=$(( AUTO_AT - tp[$1] ))
+  if (( rb[i] )); then
+    if   (( us[i] == 2 )); then cls[i]=9 ck[i]=0
+    elif (( us[i] == 3 || tp[i] >= AUTO_AT )); then cls[i]=8 ck[i]=${uf[i]:-0}
+    else cls[i]=7 ck[i]=${tp[i]:-0}; fi
+    return
+  fi
+  if   (( us[i] == 2 )); then cls[i]=9 ck[i]=0
+  elif (( us[i] == 3 || room <= 1 )); then
+    cls[i]=8 ck[i]=$(( uf[i] ? uf[i] : sr[i] ? sr[i] : wkr[i] ))
+  elif (( room < AUTO_ROOM )); then cls[i]=4 ck[i]=$(( 100 - room ))
+  elif (( sr[i] )); then cls[i]=1 ck[i]=$sr[i]
+  elif (( wkr[i] && wkr[i] - EPOCHSECONDS < 86400 && ${wkp[i]:-0} <= 70 )); then cls[i]=2 ck[i]=$wkr[i]
+  else cls[i]=3 ck[i]=${wkp[i]:-0}
+  fi
+}
+
+# Why account i sits where it does, in words.
+auto_why() {
+  local i=$1 room=$(( AUTO_AT - tp[$1] ))
+  case $cls[i] in
+    1) print -r -- "its 5h window is already running with $room% to go and resets $(when $sr[i]), so that room gets used before it expires" ;;
+    2) print -r -- "its weekly limit resets $(when $wkr[i]) with $(( 100 - wkp[i] ))% unused, which would otherwise be lost" ;;
+    3) print -r -- "no 5h window running there, so this starts one (resets around $(strftime '%H:%M' $(( EPOCHSECONDS + 18000 ))))${wkp[i]:+, weekly at $wkp[i]%}" ;;
+    4) print -r -- "only $room% to go there, but nothing has more" ;;
+    7) print -r -- "it bills the API, so it's only used when every plan account is full or unreachable" ;;
+    8) print -r -- "full$( (( ck[i] > EPOCHSECONDS )) && print ", frees up $(when $ck[i])")" ;;
+    *) print -r -- "${uw[i]%%.*}" ;;
+  esac
+}
+
+# Records a reading of a limit and sets REPLY to how fast it's rising, in
+# percent per minute over up to the last 15 minutes. A drop means the window
+# reset, so the history starts over. With $3 = 0 it only reads.
+auto_rate() {
+  local id=$1 pct=${2:-0} rec=$3 e last t0
+  local -a keep
+  for e in ${=hist[$id]}; do
+    (( EPOCHSECONDS - ${e%%:*} <= 900 )) && keep+=( $e )
+  done
+  if (( rec )); then
+    last=${keep[-1]#*:}
+    [[ -n $last ]] && (( pct < last )) && keep=()
+    keep+=( "$EPOCHSECONDS:$pct" )
+  fi
+  hist[$id]=${(j: :)keep}
+  REPLY=0
+  (( $#keep )) || return 0
+  t0=${keep[1]%%:*} last=${keep[-1]%%:*}
+  (( last - t0 >= 120 )) && printf -v REPLY '%.1f' $(( (${keep[-1]#*:} - ${keep[1]#*:}) * 60.0 / (last - t0) ))
+  return 0
+}
+
+# Logs what changed for account i since the last check.
+auto_changes() {
+  local i=$1 k=$rk[$1] nm=$(name_of "$rk[$1]") ps=${psr[$rk[$1]]} pu=${pus[$rk[$1]]} pe=${perr[$rk[$1]]}
+  if [[ -n $pu ]]; then
+    if (( us[i] == 2 )); then
+      [[ $uw[i] != $pe ]] && alog change "$Y" "$nm: $uw[i]"
+    else
+      [[ -n $pe ]] && alog change "$G" "$nm is reachable again"
+      (( us[i] == 3 && pu != 3 )) && alog change "$RED" "$nm hit its limit ($tl[i] $tp[i]%)$( (( uf[i] )) && print ", frees up $(when $uf[i])")"
+      (( pu == 3 && us[i] != 3 )) && alog change "$G" "$nm has room again"
+      if   (( ! ps && sr[i] )); then alog change "$D" "$nm started a 5h window, resets $(when $sr[i])"
+      elif (( ps && ! sr[i] )); then alog change "$D" "$nm's 5h window ended"
+      elif (( ps && sr[i] && (sr[i] - ps > 600 || ps - sr[i] > 600) )); then
+        alog change "$D" "$nm's 5h window reset, the new one resets $(when $sr[i])"
+      fi
+    fi
+  fi
+  pus[$k]=$us[i] psr[$k]=$sr[i]
+  if (( us[i] == 2 )); then perr[$k]=$uw[i]; else perr[$k]=""; fi
+}
+
+# Moves to account t, logging why. $1 is t, $2 the reason to leave.
+auto_switch() {
+  local t=$1 leave=$2 cur=$rk[c] i others=() n
+  if (( dry )); then
+    alog would "$A$B" "switch $(name_of "$cur") → $(label "$rk[t]") ${D}(dry run)${R}"
+  else
+    # A failed save used to be ignored, which could switch away from a Console
+    # login before its API key was copied and then delete the only copy.
+    if ! save_current >/dev/null 2>&1; then
+      alog error "$RED" "couldn't save $(name_of "$cur") before switching, so staying put"
+      return 1
+    fi
+    local err
+    if ! err=$(switch_to "$rk[t]" 2>&1); then
+      err=${err##*$'\n'}
+      alog error "$RED" "couldn't switch to $(name_of "$rk[t]")${err:+: $err}"
+      return 1
+    fi
+    slot_seen=$(security find-generic-password -a "$USER" -s "$SLOT" -w 2>/dev/null)
+    good[$rk[t]]=$slot_seen
+    switched=$EPOCHSECONDS lastcur=$rk[t] chosen=""
+    alog switch "$A$B" "$(name_of "$cur") → $(label "$rk[t]")"
+    notify "$(name_of "$cur") → $(name_of "$rk[t]"): $leave"
+  fi
+  amore "why: $leave"
+  amore "picked $(name_of "$rk[t]"): $(auto_why $t)"
+  for i in $order; do
+    (( i != t && i != c )) && others+=( "$(name_of "$rk[i]") ($(auto_why $i))" )
+  done
+  (( $#others )) && amore "${D}passed over: ${(j:; :)others}${R}"
+  n=$(claude_pids | wc -l | tr -d ' ')
+  (( n && ! dry )) && amore "${D}$n open claude session$( (( n > 1 )) && print s) move to $(name_of "$rk[t]") on their next request, within about 30 seconds${R}"
+  return 0
+}
+
+# Reads what auto_tick needs from settings.json, so a change from the menu
+# bar or oof set lands on the next check: AUTO_ON for whether it switches,
+# and AUTO_AT, where --at and OOF_AUTO_AT beat the setting.
+auto_settings() {
+  local on=0 at=$(setting at 99)
+  [[ $(setting auto on) == on ]] && on=1
+  if [[ -n $AUTO_ON && $on != $AUTO_ON ]]; then
+    if (( on )); then alog mode "$A" "auto switching is on"
+    else alog mode "$A" "auto switching is off, so oof only watches and tells you when you run low"; fi
+  fi
+  AUTO_ON=$on
+  [[ $at == <50-99> ]] || at=99
+  AUTO_AT=${at_flag:-${OOF_AUTO_AT:-$at}}
+}
+
+# Keeps the display awake while the awake setting is on, the way caffeinate
+# -d does. That caffeinate watches this process, so it ends with oof however
+# oof ends. Dry runs leave the display alone.
+auto_awake() {
+  (( dry )) && return 0
+  if [[ $(setting awake off) == on ]]; then
+    (( awakepid )) && [[ $(ps -o comm= -p $awakepid 2>/dev/null) == *caffeinate ]] && return 0
+    caffeinate -d -w $$ {barfd}>&- &
+    awakepid=$!
+    alog awake "$A" "keeping the display awake"
+  elif (( awakepid )); then
+    kill $awakepid 2>/dev/null
+    awakepid=0
+    alog awake "$D" "the display can sleep again"
+  fi
+  return 0
+}
+
+# With auto switching off, says once that the active account (c) is out of
+# room, and offers account $1 if it has any. auto_bar shows the offer in the
+# menu bar with a Switch button.
+auto_low() {
+  local b=$1 nm=$(name_of "$rk[c]")
+  if   (( rb[c] && us[c] < 3 )); then lowtext="$nm bills the API."
+  elif (( us[c] == 2 )); then lowtext="$nm's login doesn't work any more."
+  elif (( us[c] == 3 )); then lowtext="$nm is at its limit."
+  else                        lowtext="$nm has used $tp[c]%."; fi
+  lowfor=$rk[c] lowid="$rk[c]:$EPOCHSECONDS" lowto=""
+  if (( b && cls[b] <= 4 )); then
+    lowto=$rk[b]
+    lowtext+=" $(name_of "$rk[b]") has the most room."
+    alog low "$Y" "$lowtext"
+    amore "auto switching is off, so it's up to you. $(name_of "$rk[b]"): $(auto_why $b)"
+  else
+    lowtext+=" Every other account is full or unreachable."
+    alog low "$RED" "$lowtext"
+  fi
+  notify "$lowtext"
+}
+
+# One round: check, log, decide, and set nap to the seconds until the next.
+auto_tick() {
+  local cur c i k b leave="" api_leave=0 hard=0 pace="" hold tok col nm
+  local -F rs=0 rw=0 h proj=0 x eta=0 e
+  local -i age=0
+  local -a due keys toks fresh ferr tp tl sp sr wkp wkr cls ck
+  auto_settings
+  auto_awake
+  # nothing hangs on the exact moment with switching off, so look half as often
+  nap=$(( AUTO_ON ? AUTO_EVERY : AUTO_EVERY * 2 ))
+
+  auto_guard
+  cur=$(current_key)
+  if [[ -z $cur ]]; then
+    alog wait "$Y" "claude isn't logged in to anything. Waiting"
+    auto_bar "claude isn't logged in"
+    return 0
+  fi
+  if [[ -n $lastcur && $cur != $lastcur ]]; then
+    alog switch "$A" "now on $(label "$cur"), switched outside oof auto"
+    amore "you picked it, so it stays until it runs low"
+    chosen=$cur
+  fi
+  lastcur=$cur
+  [[ -f $STORE/$cur.json ]] || (( dry )) || save_current >/dev/null 2>&1
+  collect "$cur"
+  c=${ra[(Ie)1]}
+  (( c )) || { alog wait "$Y" "the active login isn't saved yet. Waiting"; auto_bar "the active login isn't saved yet"; return 0 }
+  auto_wake "$cur"
+
+  for (( i = 1; i <= $#rk; i++ )); do
+    (( i == c || EPOCHSECONDS - ${fetched[$rk[i]]:-0} >= AUTO_OTHERS )) && due+=( $i )
+  done
+  auto_fetch $due
+  rank {1..$#rk}
+  auto_read {1..$#rk}
+  for (( i = 1; i <= $#rk; i++ )); do
+    auto_class $i
+    auto_changes $i
+    (( us[i] == 2 )) || wend[$rk[i]]=$sr[i]
+    keys+=( "$cls[i]:${(l:12::0:)ck[i]}:$i" )
+  done
+  order=( ${${(o)keys}##*:} )
+
+  # how fast the active account is filling, and where it'll be by the next
+  # look plus the 30 seconds open sessions may take to follow a switch
+  k=$rk[c]
+  (( age = EPOCHSECONDS - ${saved_at[$k]:-$EPOCHSECONDS} ))
+  auto_rate "$k|s" "$sp[c]" ${fresh[c]:-0}; rs=$REPLY
+  auto_rate "$k|w" "$wkp[c]" ${fresh[c]:-0}; rw=$REPLY
+  (( h = (AUTO_EVERY + age + 60) / 60.0 ))
+  for x e in ${sp[c]:-0} $rs ${wkp[c]:-0} $rw; do
+    (( e > 0 )) || continue
+    (( x + e * h > proj )) && (( proj = x + e * h ))
+    (( !eta || (AUTO_AT - x) * 60 / e < eta )) && (( eta = (AUTO_AT - x) * 60 / e ))
+  done
+  (( rs > 0 )) && pace="+$(printf '%.1f' $rs)%/min"
+  (( eta > 0 )) && pace+="${pace:+, }$AUTO_AT% in ~$(dur $eta)"
+
+  for (( i = 1; i <= $#rk; i++ )); do
+    nm=$(name_of "$rk[i]")
+    if (( i == c )); then tok="${G}●${R} ${B}$nm${R}"; else tok="${D}○${R} $nm"; fi
+    if (( us[i] == 2 )); then
+      toks+=( "$tok ${Y}${uw[i]%%.*}${R}" )
+      continue
+    fi
+    if (( rb[i] )); then
+      if   (( us[i] == 3 || tp[i] >= 90 )); then col=$RED
+      elif (( tp[i] >= 70 )); then col=$Y
+      else col=$G; fi
+      tok+=" ${col}${uw[i]:-API}${R}"
+      (( us[i] == 3 )) && tok+=" ${RED}full${R}"
+      toks+=( "$tok" )
+      continue
+    fi
+    if   (( tp[i] >= 90 )); then col=$RED
+    elif (( tp[i] >= 70 )); then col=$Y
+    else                         col=$G; fi
+    tok+=" ${col}${sp[i]:--}%/${wkp[i]:--}%${R}"
+    if   (( us[i] == 3 )); then tok+=" ${RED}full${R}$( (( uf[i] )) && print " ${D}frees $(when $uf[i])${R}")"
+    elif (( sr[i] ));      then tok+=" ${D}↺$(dur $(( sr[i] - EPOCHSECONDS )))${R}"
+    else                        tok+=" ${D}idle${R}"; fi
+    (( i == c )) && [[ -n $pace ]] && tok+=" ${D}$pace${R}"
+    if [[ -n $ferr[i] ]]; then
+      tok+=" ${Y}(stale $(dur $(( EPOCHSECONDS - ${saved_at[$rk[i]]} ))), ${ferr[i]%%.*}"
+      # a stale reading on the account in use is worth an estimate
+      (( i == c && rs > 0 && age >= 60 )) && tok+=", ~$(printf '%.0f' $(( ${sp[i]:-0} + rs * age / 60.0 )))% by now"
+      tok+=")${R}"
+    fi
+    toks+=( "$tok" )
+  done
+  alog check "$D" "${(j: · :)toks}"
+
+  # reasons to leave the active account now. hard is set for the ones that
+  # are already true, not just projected.
+  if (( us[c] == 2 )); then
+    [[ $uw[c] == *(rejected|no saved)* ]] && leave="its login doesn't work any more (${uw[c]%%.*})" hard=1
+  elif (( us[c] == 3 )); then
+    leave="it's at its limit ($tl[c] $tp[c]%)" hard=1
+  elif (( tp[c] >= AUTO_AT )); then
+    leave="$tl[c] is at $tp[c]%, and the switch point is $AUTO_AT%" hard=1
+  elif (( proj >= AUTO_AT )); then
+    leave="$tl[c] is at $tp[c]% and rising ~$(printf '%.1f' $(( rs > rw ? rs : rw )))%/min, so it would pass $AUTO_AT% before the next check"
+  fi
+
+  b=0
+  for i in $order; do (( i != c )) && { b=$i; break }; done
+
+  # A Console account with room still bills the API, so leave it while any
+  # plan account is usable. Idle preemption below must not pull the other way.
+  if [[ -z $leave ]] && (( rb[c] && us[c] < 2 && b && cls[b] <= 4 )); then
+    api_leave=1
+    hard=1
+  fi
+
+  if (( ! AUTO_ON )); then
+    # say so once for each account that runs out, and again if it's another
+    if (( ! hard )); then lowfor="" lowid=""
+    elif [[ $lowfor != $cur ]]; then auto_low $b
+    fi
+  elif [[ -n $leave || api_leave -eq 1 ]]; then
+    # look at everyone again before choosing, unless that was just done
+    due=()
+    for i in $order; do
+      (( i != c && EPOCHSECONDS - ${fetched[$rk[i]]:-0} > 90 )) && due+=( $i )
+    done
+    if (( $#due )); then
+      auto_fetch $due
+      rank {1..$#rk}
+      auto_read {1..$#rk}
+      keys=()
+      for (( i = 1; i <= $#rk; i++ )); do
+        auto_class $i
+        keys+=( "$cls[i]:${(l:12::0:)ck[i]}:$i" )
+      done
+      order=( ${${(o)keys}##*:} )
+      b=0
+      for i in $order; do (( i != c )) && { b=$i; break }; done
+    fi
+    if (( api_leave && b && cls[b] <= 4 )); then
+      leave="bills the API, and $(name_of "$rk[b]") still has plan room"
+    fi
+    # Class 7 is a Console account. Only step onto it when the leave is already
+    # real (a plan is full), not because a window elsewhere looks attractive.
+    if [[ -n $leave ]] && (( b && (cls[b] <= 4 || (hard && cls[b] == 7)) )); then
+      auto_switch $b "$(name_of "$cur") $leave" && lasthold=""
+    elif [[ -n $leave ]]; then
+      hold="every other account is full or unreachable"
+      (( b && cls[b] == 8 && ck[b] > EPOCHSECONDS )) && hold+=". $(name_of "$rk[b]") frees up first, $(when $ck[b])"
+      if [[ $hold != $lasthold ]]; then
+        alog hold "$RED" "staying on $(name_of "$cur"), though $leave"
+        amore "$hold"
+        lasthold=$hold
+      fi
+    fi
+  elif (( b && ! sr[c] && us[c] < 2 && EPOCHSECONDS - switched >= 600 )) \
+       && [[ $cur != $chosen ]] && (( cls[b] == 1 || (cls[b] == 2 && cls[c] == 3) )); then
+    # the active account is idle, so its next message would start a new 5h
+    # clock while another account's headroom runs out unused. An account you
+    # picked yourself is left alone for this, and only left once it runs low.
+    auto_switch $b "$(name_of "$cur") has no 5h window running, so the next message there would start a new 5h clock"
+  else
+    lasthold=""
+  fi
+  (( AUTO_ON )) && lowfor="" lowid=""
+
+  (( AUTO_ON )) && (( tp[c] >= AUTO_AT - 10 || (eta > 0 && eta < 3 * AUTO_EVERY) )) && nap=$AUTO_FAST
+  auto_bar
+  return 0
+}
+
+# ---------------------------------------------------------------- menu bar
+#
+# While oof auto runs, a small Swift program shows the active account in the
+# menu bar with how much of it is used, and every account's limits when
+# clicked. It's built into $STORE/bar on first use and again whenever the
+# source below changes. auto_bar sends it a line of JSON after each check, and
+# it quits when that pipe closes or oof auto exits.
+
+bar_source() {
+  cat <<'SWIFT'
+// oof auto's menu bar widget. oof starts it with its own pid and path, and
+// sends it a line of JSON on stdin after every check (auto_bar in oof lists
+// the fields). Everything it does, it does by running oof itself, so the menu
+// and the CLI always agree. It quits when oof does.
+import AppKit
+import SwiftUI
+
+struct Limit: Decodable {
+  let label: String
+  let left: Int?
+  let tone: String
+  let note: String
+  let main: Bool
+  // oof sends what's left. Shown as used, like Claude Code's /usage.
+  var used: Int? { left.map { 100 - $0 } }
+}
+
+struct Account: Decodable {
+  let key: String
+  let name: String
+  var active: Bool
+  let left: Int?
+  let tone: String
+  let note: String
+  let noteTone: String
+  let rate: String
+  let eta: String
+  let limits: [Limit]
+  // a full account would only be switched away from again
+  var pickable: Bool { !active && left != 0 }
+  var main: Limit? { limits.first(where: \.main) }
+  var used: Int? { left.map { 100 - $0 } }
+}
+
+// What oof set shows, plus the models that have limits of their own.
+struct Settings: Decodable {
+  let auto: Bool
+  let at: Int
+  let model: String
+  let notify: Bool
+  let login: Bool
+  let awake: Bool
+  let log: String
+  let claudeModel: String
+  let models: [String]
+}
+
+// With auto switching off, oof's word that the active account ran out, and
+// the account it suggests instead (to is empty when there's none).
+struct Offer: Decodable {
+  let id: String
+  let text: String
+  let to: String
+  let toName: String
+}
+
+struct Update: Decodable {
+  let note: String
+  var accounts: [Account]
+  var settings: Settings?
+  var alert: Offer?
+}
+
+let args = CommandLine.arguments
+let oof = pid_t(args.count > 1 ? args[1] : "") ?? 0
+let script = args.count > 2 ? args[2] : nil
+let menuFont = NSFont.menuFont(ofSize: 0)
+let rowFont = NSFont.systemFont(ofSize: menuFont.pointSize - 1)
+let digitFont = NSFont.monospacedDigitSystemFont(ofSize: rowFont.pointSize, weight: .regular)
+
+// oof's tones, g, y and r, as colours. Anything else is nil: a limit that
+// doesn't apply to your model, or plain text.
+func color(_ tone: String) -> NSColor? {
+  switch tone {
+  case "g": .systemGreen
+  case "y": .systemYellow
+  case "r": .systemRed
+  default: nil
+  }
+}
+
+func paint(_ tone: String, or plain: Color) -> Color {
+  color(tone).map { Color(nsColor: $0) } ?? plain
+}
+
+func width(_ s: String, _ font: NSFont) -> CGFloat {
+  ceil((s as NSString).size(withAttributes: [.font: font]).width)
+}
+
+// What to call each account: its short name, else its email up to the @,
+// unless two accounts would then look the same.
+func names(_ accounts: [Account]) -> [String: String] {
+  func local(_ n: String) -> String { n.contains("@") ? String(n.prefix { $0 != "@" }) : n }
+  let counts = Dictionary(accounts.map { (local($0.name), 1) }, uniquingKeysWith: +)
+  return Dictionary(accounts.map { a in (a.key, counts[local(a.name)]! > 1 ? a.name : local(a.name)) },
+                    uniquingKeysWith: { a, _ in a })
+}
+
+let cup = NSImage(systemSymbolName: "cup.and.heat.waves.fill", accessibilityDescription: "Keeping the display awake")
+
+// A symbol drawn in the menu bar's text colour, which a plain draw of a
+// template image wouldn't be.
+func drawSymbol(_ image: NSImage?, in rect: NSRect) {
+  guard let image else { return }
+  let tinted = NSImage(size: rect.size, flipped: false) { r in
+    image.draw(in: r)
+    NSColor.labelColor.set()
+    r.fill(using: .sourceIn)
+    return true
+  }
+  tinted.draw(in: rect)
+}
+
+// The menu bar item: the account and how much of it is used, over a rounded
+// track filled to that much in the account's colour, and a cup while
+// the display is kept awake. It's drawn each time it's shown, so the text and
+// track follow the menu bar's light or dark look.
+func badge(_ a: Account, name: String, awake: Bool) -> NSImage {
+  let text = name + (a.used.map { " \($0)%" } ?? "")
+  let font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
+  let lead: CGFloat = awake ? 16 : 0
+  return NSImage(size: NSSize(width: lead + width(text, font), height: 18), flipped: false) { rect in
+    if awake { drawSymbol(cup, in: NSRect(x: 0, y: 3, width: 12, height: 12)) }
+    (text as NSString).draw(at: NSPoint(x: lead, y: 5), withAttributes: [.font: font, .foregroundColor: NSColor.labelColor])
+    let h: CGFloat = 3
+    let track = NSRect(x: lead, y: 1, width: rect.width - lead, height: h)
+    NSColor.labelColor.withAlphaComponent(0.25).setFill()
+    NSBezierPath(roundedRect: track, xRadius: h / 2, yRadius: h / 2).fill()
+    if let used = a.used, used > 0 {
+      var fill = track
+      fill.size.width = max(h, track.width * CGFloat(min(used, 100)) / 100)
+      (color(a.tone) ?? .labelColor).setFill()
+      NSBezierPath(roundedRect: fill, xRadius: h / 2, yRadius: h / 2).fill()
+    }
+    return true
+  }
+}
+
+struct Meter: View {
+  let used: Int?
+  let tone: String
+  let height: CGFloat
+  var body: some View {
+    GeometryReader { g in
+      ZStack(alignment: .leading) {
+        Capsule().fill(.quaternary)
+        if let used, used > 0 {
+          Capsule()
+            .fill(paint(tone, or: .secondary))
+            .frame(width: max(g.size.height, g.size.width * CGFloat(min(used, 100)) / 100))
+        }
+      }
+    }
+    .frame(minWidth: 100, maxWidth: .infinity, minHeight: height, maxHeight: height)
+    .animation(.easeOut(duration: 0.35), value: used)
+    .accessibilityElement()
+    .accessibilityLabel(used.map { "\($0) percent used" } ?? "usage unknown")
+  }
+}
+
+// The latest line from oof. Both views watch it, so an update while the menu
+// is open changes them in place and the bars move to their new values.
+final class Model: ObservableObject {
+  @Published var u = Update(note: "Checking…", accounts: [])
+}
+
+// The account in use: how much of its session is used, big, and the pace, then every limit in the order the API lists them (session, weekly,
+// model weeklies), so the tightest one doesn't jump ahead of the session.
+struct HeroView: View {
+  @ObservedObject var model: Model
+
+  var body: some View {
+    let u = model.u
+    VStack(alignment: .leading, spacing: 7) {
+      if let a = u.accounts.first(where: \.active) {
+        hero(a, name: names(u.accounts)[a.key] ?? a.name, at: u.settings?.at)
+      } else {
+        Text(u.note).foregroundStyle(.secondary).fixedSize()
+      }
+    }
+    .font(Font(menuFont))
+    .padding(.horizontal, 14)
+    .padding(.top, 6)
+    .padding(.bottom, 4)
+  }
+
+  @ViewBuilder func hero(_ a: Account, name: String, at: Int?) -> some View {
+    HStack(alignment: .firstTextBaseline) {
+      Text(name).font(.system(size: 15, weight: .semibold)).fixedSize()
+      Spacer(minLength: 24)
+      if let used = a.used {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+          Text("\(used)%")
+            .font(.system(size: 20, weight: .semibold).monospacedDigit())
+            .foregroundStyle(paint(a.tone, or: .primary))
+          Text("used").foregroundStyle(.secondary)
+        }
+        .fixedSize()
+      }
+    }
+    let pace = detail(a, at: at)
+    if !pace.isEmpty || !a.note.isEmpty {
+      HStack(spacing: 0) {
+        Text(pace).foregroundStyle(.secondary)
+        if !a.note.isEmpty {
+          Text(pace.isEmpty ? a.note : " · \(a.note)").foregroundStyle(paint(a.noteTone, or: .secondary))
+        }
+      }
+      .font(.system(size: 12))
+      .fixedSize()
+    }
+    if !a.limits.isEmpty {
+      let labelWidth = a.limits.map { width($0.label, rowFont) }.max() ?? 0
+      let noteWidth = a.limits.map { width($0.note, rowFont) }.max() ?? 0
+      VStack(alignment: .leading, spacing: 5) {
+        ForEach(Array(a.limits.enumerated()), id: \.offset) { _, l in
+          HStack(spacing: 10) {
+            Text(l.label)
+              .foregroundStyle(l.tone.isEmpty ? .secondary : .primary)
+              .fixedSize()
+              .frame(minWidth: labelWidth, alignment: .leading)
+            Meter(used: l.used, tone: l.tone, height: 5)
+            Text(l.used.map { "\($0)%" } ?? "")
+              .font(Font(digitFont))
+              .foregroundStyle(paint(l.tone, or: .secondary))
+              .fixedSize()
+              .frame(minWidth: width("100%", digitFont), alignment: .trailing)
+            Text(l.note).foregroundStyle(.secondary).fixedSize()
+              .frame(minWidth: noteWidth, alignment: .leading)
+          }
+        }
+      }
+      .font(Font(rowFont))
+      .padding(.top, 2)
+    }
+  }
+
+  // "+0.4%/min · 90% in ~45m"
+  func detail(_ a: Account, at: Int?) -> String {
+    var parts: [String] = []
+    if !a.rate.isEmpty { parts.append(a.rate) }
+    if !a.eta.isEmpty { parts.append(at.map { "\($0)% in ~\(a.eta)" } ?? "~\(a.eta) left") }
+    return parts.joined(separator: " · ")
+  }
+}
+
+// @State is a macro, and the command line tools come without its plugin
+final class Hover: ObservableObject {
+  @Published var on = false
+}
+
+// One line for every other account, in shared columns. Click one to switch.
+struct RowsView: View {
+  @ObservedObject var model: Model
+  let pick: (String) -> Void
+
+  var body: some View {
+    let u = model.u
+    let shown = names(u.accounts)
+    let others = u.accounts.filter { !$0.active }
+    let right = others.map { $0.note.isEmpty ? ($0.main?.note ?? "") : $0.note }
+    let nameWidth = others.map { width(shown[$0.key] ?? $0.name, menuFont) }.max() ?? 0
+    let noteWidth = right.map { width($0, rowFont) }.max() ?? 0
+    VStack(alignment: .leading, spacing: 0) {
+      ForEach(Array(zip(others, right).enumerated()), id: \.element.0.key) { _, pair in
+        Row(a: pair.0, name: shown[pair.0.key] ?? pair.0.name, right: pair.1,
+            nameWidth: nameWidth, noteWidth: noteWidth, pick: pick)
+      }
+    }
+    .font(Font(menuFont))
+    .padding(.horizontal, 6)
+    .padding(.vertical, 3)
+  }
+}
+
+struct Row: View {
+  let a: Account
+  let name: String
+  let right: String
+  let nameWidth: CGFloat
+  let noteWidth: CGFloat
+  let pick: (String) -> Void
+  @StateObject private var hover = Hover()
+
+  var body: some View {
+    HStack(spacing: 10) {
+      Text(name).fixedSize().frame(minWidth: nameWidth, alignment: .leading)
+      Meter(used: a.used, tone: a.tone, height: 5)
+      Text(a.used.map { "\($0)%" } ?? "")
+        .font(Font(digitFont))
+        .foregroundStyle(paint(a.tone, or: .secondary))
+        .fixedSize()
+        .frame(minWidth: width("100%", digitFont), alignment: .trailing)
+      Text(right)
+        .font(Font(rowFont))
+        .foregroundStyle(paint(a.noteTone, or: .secondary))
+        .fixedSize()
+        .frame(minWidth: noteWidth, alignment: .leading)
+    }
+    .padding(.horizontal, 8)
+    .padding(.vertical, 5)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(RoundedRectangle(cornerRadius: 6).fill(hover.on && a.pickable ? Color.primary.opacity(0.1) : .clear))
+    .contentShape(Rectangle())
+    .onHover { hover.on = $0 }
+    .onTapGesture { if a.pickable { pick(a.key) } }
+  }
+}
+
+struct OfferView: View {
+  let o: Offer
+  let take: () -> Void
+  let dismiss: () -> Void
+  var body: some View {
+    VStack(alignment: .trailing, spacing: 12) {
+      Text(o.text).fixedSize()
+      HStack {
+        Button("Dismiss", action: dismiss)
+        if !o.to.isEmpty {
+          Button("Switch to \(o.toName)", action: take).keyboardShortcut(.defaultAction)
+        }
+      }
+    }
+    .font(Font(menuFont))
+    .padding(14)
+  }
+}
+
+// A menu item that runs a closure. NSMenuItem only holds its target weakly,
+// so the item keeps it as its represented object.
+final class Action: NSObject {
+  let f: () -> Void
+  init(_ f: @escaping () -> Void) { self.f = f }
+  @objc func go() { f() }
+}
+
+// macOS 27 hides menu item images unless an item asks for them. That's done
+// by selector so the widget still builds with older SDKs, which lack it.
+func icon(_ it: NSMenuItem, _ symbol: String?) {
+  guard let symbol else { return }
+  it.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+  if it.responds(to: NSSelectorFromString("setPreferredImageVisibility:")) {
+    it.setValue(1, forKey: "preferredImageVisibility")
+  }
+}
+
+func entry(_ title: String, symbol: String? = nil, on: Bool? = nil, enabled: Bool = true,
+           key: String = "", _ f: @escaping () -> Void) -> NSMenuItem {
+  let a = Action(f)
+  let it = NSMenuItem(title: title, action: #selector(Action.go), keyEquivalent: key)
+  it.target = a
+  it.representedObject = a
+  it.isEnabled = enabled
+  icon(it, symbol)
+  if let on { it.state = on ? .on : .off }
+  return it
+}
+
+// A dialog in front of everything, with oof's icon rather than a blank one,
+// since the widget has no app icon of its own.
+func dialog(_ title: String) -> NSAlert {
+  NSApp.activate(ignoringOtherApps: true)
+  let a = NSAlert()
+  a.messageText = title
+  a.icon = NSImage(systemSymbolName: "arrow.triangle.2.circlepath.circle.fill", accessibilityDescription: "oof")?
+    .withSymbolConfiguration(.init(pointSize: 48, weight: .regular))
+  return a
+}
+
+func submenu(_ title: String, symbol: String? = nil, _ items: [NSMenuItem]) -> NSMenuItem {
+  let m = NSMenu()
+  m.autoenablesItems = false
+  items.forEach(m.addItem)
+  let it = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+  icon(it, symbol)
+  it.submenu = m
+  return it
+}
+
+final class Widget: NSObject, NSMenuDelegate {
+  let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+  let menu = NSMenu()
+  let model = Model()
+  let hero = NSMenuItem()
+  let rows = NSMenuItem()
+  let heroView: NSHostingView<HeroView>
+  let rowsView: NSHostingView<RowsView>
+  let popover = NSPopover()
+  var last: Update { model.u }
+  var open = false
+  var stale = false
+  var nudged = Date.distantPast
+  var offered = ""
+
+  override init() {
+    heroView = NSHostingView(rootView: HeroView(model: model))
+    rowsView = NSHostingView(rootView: RowsView(model: model, pick: { _ in }))
+    super.init()
+    rowsView.rootView = RowsView(model: model) { [weak self] key in self?.pick(key) }
+    hero.view = heroView
+    rows.view = rowsView
+    item.autosaveName = "oof"
+    item.menu = menu
+    menu.delegate = self
+    menu.autoenablesItems = false
+    popover.behavior = .applicationDefined
+    item.button?.font = .monospacedDigitSystemFont(ofSize: NSFont.menuBarFont(ofSize: 0).pointSize, weight: .regular)
+    item.button?.imagePosition = .imageLeading
+    show(model.u)
+  }
+
+  func show(_ u: Update) {
+    let awake = u.settings?.awake ?? false
+    if let on = u.accounts.first(where: { $0.active }) {
+      item.button?.title = ""
+      item.button?.image = badge(on, name: names(u.accounts)[on.key] ?? on.name, awake: awake)
+    } else {
+      item.button?.title = "oof"
+      item.button?.image = awake ? cup : nil
+    }
+    model.u = u
+    fit()
+    // SwiftUI lays the new content out on the next pass
+    DispatchQueue.main.async { self.fit() }
+    // rebuilding the rest would close a submenu you're in, so that waits
+    if open { stale = true } else { build() }
+    offer(u.alert)
+  }
+
+  // Both views as wide as the wider one, so their edges line up.
+  func fit() {
+    let w = max(280, heroView.fittingSize.width, rowsView.fittingSize.width)
+    heroView.frame.size = NSSize(width: w, height: heroView.fittingSize.height)
+    rowsView.frame.size = NSSize(width: w, height: rowsView.fittingSize.height)
+  }
+
+  // The accounts, then the same commands the CLI has.
+  func build() {
+    let u = last
+    menu.removeAllItems()
+    menu.addItem(hero)
+    if u.accounts.contains(where: { !$0.active }) {
+      menu.addItem(.separator())
+      menu.addItem(rows)
+    }
+    menu.addItem(.separator())
+    guard oof > 0 else { return }
+    if let s = u.settings {
+      menu.addItem(entry("Switch Automatically", symbol: "arrow.triangle.2.circlepath", on: s.auto) { [weak self] in
+        self?.run(["auto", s.auto ? "off" : "on"])
+      })
+      menu.addItem(entry("Keep Display Awake", symbol: "cup.and.heat.waves.fill", on: s.awake) { [weak self] in
+        self?.run(["awake", s.awake ? "off" : "on"])
+      })
+    }
+    menu.addItem(entry("Add Account…", symbol: "person.badge.plus") { [weak self] in self?.addAccount() })
+    if !u.accounts.isEmpty {
+      menu.addItem(submenu("Manage Accounts", symbol: "person.2", u.accounts.map { a in
+        submenu(a.name, symbol: "person.crop.circle", [
+          entry("Rename…", symbol: "pencil") { [weak self] in self?.rename(a) },
+          // oof rm won't forget the active login, since claude's hooks would save it again
+          entry("Remove…", symbol: "trash", enabled: !a.active) { [weak self] in self?.remove(a) },
+        ])
+      }))
+    }
+    if let s = u.settings { menu.addItem(submenu("Settings", symbol: "gearshape", settings(s))) }
+    menu.addItem(.separator())
+    menu.addItem(entry("Quit oof", symbol: "power", key: "q") { [weak self] in self?.run(["stop"]) })
+  }
+
+  func settings(_ s: Settings) -> [NSMenuItem] {
+    let at = Set([90, 95, 99, s.at]).sorted().map { p in
+      entry("\(p)%", on: p == s.at) { [weak self] in self?.run(["set", "at", "\(p)"]) }
+    }
+    let mine = s.claudeModel.isEmpty ? "Claude's Default" : "\(s.claudeModel.capitalized) (Claude's Default)"
+    var models = [entry(mine, on: s.model.isEmpty) { [weak self] in self?.run(["set", "model", "default"]) }]
+    var names = s.models.filter { $0.lowercased() != s.claudeModel.lowercased() }
+    if !["", "all"].contains(s.model) && !names.contains(where: { $0.lowercased() == s.model }) {
+      names.append(s.model.capitalized)
+    }
+    for m in names {
+      models.append(entry(m, on: s.model == m.lowercased()) { [weak self] in self?.run(["set", "model", m.lowercased()]) })
+    }
+    models.append(entry("Every Model", on: s.model == "all") { [weak self] in self?.run(["set", "model", "all"]) })
+    return [
+      submenu("Switch At", symbol: "gauge.with.dots.needle.67percent", at),
+      submenu("Count Limits For", symbol: "cpu", models),
+      .separator(),
+      entry("Notifications", symbol: "bell", on: s.notify) { [weak self] in self?.run(["set", "notify", s.notify ? "off" : "on"]) },
+      entry("Start at Login", symbol: "arrow.right.circle", on: s.login) { [weak self] in self?.run(["set", "login", s.login ? "off" : "on"]) },
+      .separator(),
+      entry("Show Log", symbol: "doc.text") {
+        NSWorkspace.shared.open([URL(fileURLWithPath: s.log)],
+                                withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Console.app"),
+                                configuration: NSWorkspace.OpenConfiguration())
+      },
+    ]
+  }
+
+  // Opening the menu has oof auto look again, at most every 15 seconds, so
+  // the numbers freshen while you read them.
+  func menuWillOpen(_ menu: NSMenu) {
+    open = true
+    if oof > 0 && Date().timeIntervalSince(nudged) > 15 {
+      nudged = Date()
+      kill(oof, SIGUSR1)
+    }
+  }
+
+  func menuDidClose(_ menu: NSMenu) {
+    open = false
+    if stale {
+      stale = false
+      // after the menu has finished with the item that was clicked
+      DispatchQueue.main.async { self.build() }
+    }
+  }
+
+  // Shows the move at once, then switches with oof itself.
+  func pick(_ key: String) {
+    menu.cancelTracking()
+    var u = last
+    for i in u.accounts.indices { u.accounts[i].active = u.accounts[i].key == key }
+    show(u)
+    run(["switch", key])
+  }
+
+  // Runs oof with these arguments and then has oof auto look again. If it
+  // fails, says what oof said.
+  func run(_ arguments: [String]) {
+    guard let script else { return }
+    let p = Process()
+    let err = Pipe()
+    p.executableURL = URL(fileURLWithPath: script)
+    p.arguments = arguments
+    p.standardInput = FileHandle.nullDevice
+    p.standardOutput = FileHandle.nullDevice
+    p.standardError = err
+    p.terminationHandler = { p in
+      let said = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+      kill(oof, SIGUSR1)
+      guard p.terminationStatus != 0 else { return }
+      DispatchQueue.main.async { self.fail(said) }
+    }
+    do { try p.run() } catch { fail(error.localizedDescription) }
+  }
+
+  func fail(_ said: String) {
+    let why = said.split(separator: "\n")
+      .map { $0.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "✗!")).trimmingCharacters(in: .whitespaces) }
+      .filter { !$0.isEmpty }
+    let a = dialog("oof couldn't do that")
+    a.informativeText = why.joined(separator: "\n")
+    a.runModal()
+  }
+
+  // claude auth login needs a browser and a terminal, so this opens one
+  // running oof login. A login shell finds claude on your PATH.
+  func addAccount() {
+    guard let script else { return }
+    let f = FileManager.default.temporaryDirectory.appendingPathComponent("oof-login.command")
+    let quoted = "'" + script.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    do {
+      try "#!/bin/zsh -l\n\(quoted) login\n".write(to: f, atomically: true, encoding: .utf8)
+      try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: f.path)
+      NSWorkspace.shared.open(f)
+    } catch {
+      fail(error.localizedDescription)
+    }
+  }
+
+  func rename(_ a: Account) {
+    let alert = dialog("Short name for \(a.name)")
+    let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+    field.placeholderString = "work"
+    if !a.name.contains("@") { field.stringValue = a.name }
+    alert.accessoryView = field
+    alert.addButton(withTitle: "Rename")
+    alert.addButton(withTitle: "Cancel")
+    alert.window.initialFirstResponder = field
+    guard alert.runModal() == .alertFirstButtonReturn else { return }
+    let name = field.stringValue.trimmingCharacters(in: .whitespaces)
+    // an empty name clears it, as - does in oof name
+    run(["name", a.key, name.isEmpty ? "-" : name])
+  }
+
+  func remove(_ a: Account) {
+    let alert = dialog("Remove \(a.name)?")
+    alert.informativeText = "oof forgets this account and deletes its saved login from the Keychain."
+    alert.alertStyle = .warning
+    alert.addButton(withTitle: "Remove").hasDestructiveAction = true
+    alert.addButton(withTitle: "Cancel")
+    guard alert.runModal() == .alertFirstButtonReturn else { return }
+    run(["rm", a.key, "-y"])
+  }
+
+  // auto_low's offer hangs off the menu bar item until you answer it, or it
+  // no longer stands.
+  func offer(_ o: Offer?) {
+    guard let o, oof > 0 else {
+      if popover.isShown { popover.performClose(nil) }
+      return
+    }
+    guard o.id != offered, let button = item.button else { return }
+    // just after launch the menu bar hasn't placed the item yet
+    guard let w = button.window, w.frame.height > 0 else {
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.offer(self?.last.alert) }
+      return
+    }
+    offered = o.id
+    let view = NSHostingController(rootView: OfferView(o: o, take: { [weak self] in
+      self?.popover.performClose(nil)
+      self?.pick(o.to)
+    }, dismiss: { [weak self] in
+      self?.popover.performClose(nil)
+    }))
+    popover.contentViewController = view
+    popover.contentSize = view.view.fittingSize
+    popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+  }
+}
+
+let app = NSApplication.shared
+app.setActivationPolicy(.accessory)
+let widget = Widget()
+
+DispatchQueue.global().async {
+  while let line = readLine() {
+    guard let u = try? JSONDecoder().decode(Update.self, from: Data(line.utf8)) else { continue }
+    DispatchQueue.main.async { widget.show(u) }
+  }
+  exit(0)
+}
+// a curl that oof started can hold stdin open after oof itself is gone, so
+// watch for that too
+if oof > 0 && kill(oof, 0) != 0 { exit(0) }
+let gone = oof > 0 ? DispatchSource.makeProcessSource(identifier: oof, eventMask: .exit, queue: .main) : nil
+gone?.setEventHandler { exit(0) }
+gone?.resume()
+app.run()
+SWIFT
+}
+
+# Builds the widget unless the one in $STORE/bar is up to date.
+bar_build() {
+  local dir=$STORE/bar tmp rc
+  [[ -x $dir/oof && -f $dir/oof.swift && "$(<$dir/oof.swift)" == "$(bar_source)" ]] && return 0
+  tmp=$(mktemp -d) || return 1
+  bar_source > "$tmp/oof.swift"
+  mkdir -p "$dir"
+  swiftc -O -o "$tmp/oof" "$tmp/oof.swift" > "$dir/build.log" 2>&1 \
+    && mv "$tmp/oof" "$dir/oof" && mv "$tmp/oof.swift" "$dir/oof.swift"
+  rc=$?
+  rm -rf "$tmp"
+  return rc
+}
+
+# Starts the widget with barfd pointing at its stdin. It's built in the
+# background so the first check doesn't wait for swiftc, and cat drains the
+# pipe if the widget goes away, so writing to it never fails.
+bar_start() {
+  [[ ${OOF_AUTO_BAR:-1} == 0 ]] && return 0
+  if ! xcode-select -p >/dev/null 2>&1; then
+    alog warn "$Y" "the menu bar widget needs Xcode's command line tools (xcode-select --install). Set OOF_AUTO_BAR=0 to go without"
+    return 0
+  fi
+  exec {barfd}> >(
+    trap - INT TERM
+    if bar_build; then "$STORE/bar/oof" $$ "${ZSH_ARGZERO:A}" >/dev/null 2>&1
+    else alog warn "$Y" "couldn't build the menu bar widget. swiftc's output is in ${STORE/#$HOME/~}/bar/build.log"; fi
+    cat >/dev/null
+  )
+}
+
+# Sends the widget auto_tick's figures as one line of JSON. With an argument
+# it sends just that note and no accounts. The widget's Decodable structs
+# mirror this:
+#
+#   note      text to show instead of accounts, like "claude isn't logged in"
+#   accounts  [{key, name (short name or email), active, left (percent of its
+#             session left on the active account and of its tightest limit
+#             on the others, null if unknown), tone, note (stale, full or
+#             why it can't be read), noteTone, rate ("+0.4%/min") and eta
+#             ("3h10m" to the switch point), both only on the active account,
+#             limits: [{label, left, tone, note (reset time), main (its
+#             tightest)}]}]
+#   settings  {auto, at, model, notify, login, awake, log, claudeModel,
+#             models (ones with limits of their own)}
+#   alert     auto_low's offer while it stands: {id, text, to, toName}, or null
+#
+# Tones are tone's g, y and r, or empty for a limit that doesn't count.
+auto_bar() {
+  (( barfd )) || return 0
+  local i line lbl pct sev rst note grp scope applies left t nt rate soon model=$(model_name) cfg
+  local -a rows models
+  (( $# )) || for (( i = 1; i <= $#rk; i++ )); do
+    left="" t="" note="" nt="" rate="" soon=""
+    if (( us[i] != 2 )); then
+      left=$(( tp[i] < 100 ? 100 - tp[i] : 0 ))
+      tone $tp[i]; t=$REPLY
+    fi
+    # the account in use leads with its session, as Claude Code's /usage does.
+    # Its rows below still show the weekly limits.
+    if [[ $rk[i] == $lastcur && -n $sp[i] ]] && (( us[i] != 2 )); then
+      left=$(( sp[i] < 100 ? 100 - sp[i] : 0 ))
+      tone $sp[i]; t=$REPLY
+    fi
+    if (( i == c )) && [[ $rk[i] == $lastcur ]]; then
+      (( rs > 0 )) && printf -v rate '+%.1f%%/min' $rs
+      (( eta > 0 )) && soon=$(dur $eta)
+    fi
+    [[ -n $ferr[i] ]] && note="stale $(dur $(( EPOCHSECONDS - ${saved_at[$rk[i]]:-$EPOCHSECONDS} )))" nt=y
+    if (( us[i] == 3 )); then
+      left=0 t=r nt=r note="full"
+      (( uf[i] )) && note="frees $(when $uf[i])"
+    fi
+    # just the first clause, to keep the menu narrow
+    (( us[i] == 2 )) && note=${${uw[i]%%. *}%%, *} nt=y
+    # No cap means there is no plan bar to draw. The note says so instead.
+    if [[ $uw[i] == API* ]] && (( us[i] < 2 )); then
+      left="" t="" note=$uw[i] nt=""
+    fi
+    rows+=( "A"$'\x1f'"${rn[i]:-$re[i]}"$'\x1f'"$rk[i]"$'\x1f'"$left"$'\x1f'"$t"$'\x1f'"$note"$'\x1f'"$nt"$'\x1f'"$rate"$'\x1f'"$soon" )
+    for line in ${(f)ur[i]}; do
+      IFS=$'\x1f' read -r lbl pct sev rst note grp scope <<< "$line"
+      [[ -n $scope ]] && models+=( "$scope" )
+      left="" t="" applies=1
+      [[ $grp != spend ]] && ! relevant "$scope" "$model" && applies=0
+      if [[ -n $pct ]]; then
+        left=$(( pct < 100 ? 100 - pct : 0 ))
+        tone $pct "$sev" $applies; t=$REPLY
+      fi
+      [[ -z $note ]] && (( rst > EPOCHSECONDS )) && note=$(when $rst)
+      [[ -z $note && $grp == session ]] && note=idle
+      rows+=( "L"$'\x1f'"$lbl"$'\x1f'"$left"$'\x1f'"$t"$'\x1f'"$note"$'\x1f'"$( [[ $lbl == $tl[i] ]] && print 1)" )
+    done
+  done
+  cfg=$(jq -nc --argjson auto ${AUTO_ON:-1} --argjson at $AUTO_AT --arg model "$(setting model)" \
+    --arg notify "$(setting notify on)" --arg login "$(setting login on)" --arg awake "$(setting awake off)" \
+    --arg log "$AUTO_LOG" --arg claude "$(claude_model)" --arg models "${(pj:\n:)${(@u)models}}" '
+    {auto: ($auto == 1), at: $at, model: $model, notify: ($notify == "on"), login: ($login == "on"),
+     awake: ($awake == "on"), log: $log, claudeModel: $claude,
+     models: ($models | split("\n") | map(select(. != "")))}')
+  print -ru $barfd -- "$(print -rl -- $rows | jq -Rsc --arg cur "$lastcur" --arg note "${1-}" --argjson cfg "$cfg" \
+    --arg lid "$lowid" --arg ltext "$lowtext" --arg lto "$lowto" --arg ltoname "$( [[ -n $lowto ]] && name_of "$lowto")" '
+    def num: tonumber? // null;
+    reduce (split("\n")[] | select(length > 0) | split("\u001f")) as $r ([];
+      if $r[0] == "A" then
+        . + [{key: $r[2], name: $r[1], active: ($r[2] == $cur), left: ($r[3] | num), tone: $r[4],
+              note: $r[5], noteTone: $r[6], rate: $r[7], eta: $r[8], limits: []}]
+      else
+        .[length - 1].limits += [{label: $r[1], left: ($r[2] | num), tone: $r[3], note: $r[4], main: ($r[5] == "1")}]
+      end)
+    | {note: $note, accounts: ., settings: $cfg,
+       alert: (if $lid == "" then null else {id: $lid, text: $ltext, to: $lto, toName: $ltoname} end)}')"
+}
+
+# ---------------------------------------------------------------- background
+#
+# oof start hands the auto loop to launchd as a user agent, so it runs with no
+# terminal open. The agent's plist lives in $STORE, and a copy in
+# ~/Library/LaunchAgents has launchd start it at login.
+
+# Prints the pid of the running oof auto, in a terminal or the background.
+engine_pid() {
+  local pid
+  [[ -s $STORE/auto.pid ]] || return 1
+  pid=$(<$STORE/auto.pid)
+  [[ $pid == <-> && $(ps -o command= -p $pid 2>/dev/null) == *oof* ]] || return 1
+  print $pid
+}
+
+# Has a running oof auto look again now rather than at its next turn.
+nudge_auto() {
+  local pid
+  pid=$(engine_pid) && kill -USR1 $pid 2>/dev/null
+  return 0
+}
+
+service_loaded() { launchctl print "gui/$UID/$LABEL" >/dev/null 2>&1 }
+
+# Writes the agent's plist, and copies it to where launchd starts it at login
+# when that's on. Its PATH is just the folders oof's tools live in, since
+# launchd's own is bare and a shell's can be full of per-session paths.
+agent_write() {
+  local f=$STORE/$LABEL.plist login=$HOME/Library/LaunchAgents/$LABEL.plist c p v env
+  local -a dirs args
+  for c in jq curl security python3 swiftc xcode-select osascript; do
+    p=$(whence -p $c) && dirs+=( ${p:h} )
+  done
+  dirs+=( /usr/bin /bin /usr/sbin /sbin )
+  args=( --arg PATH "${(j.:.)${(@u)dirs}}" --arg USER "$USER" --arg LANG "${LANG:-en_US.UTF-8}" )
+  for v in OOF_STORE OOF_CONFIG OOF_LABEL OOF_AUTO_LOG CLAUDE_CONFIG_DIR; do
+    [[ -n ${(P)v-} ]] && args+=( --arg $v "${(P)v}" )
+  done
+  env=$(jq -nc '$ARGS.named' "${args[@]}")
+  jq -n --arg label "$LABEL" --arg script "${ZSH_ARGZERO:A}" --arg log "$AUTO_LOG" --argjson env "$env" '
+    {Label: $label, ProgramArguments: [$script, "__serve"], EnvironmentVariables: $env,
+     RunAtLoad: true, KeepAlive: {SuccessfulExit: false}, ThrottleInterval: 10,
+     ProcessType: "Interactive", StandardOutPath: "/dev/null", StandardErrorPath: $log}' \
+    | plutil -convert xml1 -o "$f" - || return 1
+  if [[ $(setting login on) == on ]]; then
+    mkdir -p "${login:h}" && cp "$f" "$login"
+  else
+    rm -f "$login"
+  fi
+}
+
+# ---------------------------------------------------------------- commands
+
+cmd_switch() {
+  local mode=$1 launch=0 fresh=0 match="" cur target why="" free t c i
+  local -a claude_args
+  shift
+  while (( $# )); do
+    case $1 in
+      -c|--continue) launch=1 claude_args=( -c ) ;;
+      -f|--fresh) fresh=1 ;;
+      -h|--help) cmd_help $mode; return 0 ;;
+      --) shift; launch=1 claude_args=( "$@" ); break ;;
+      -*) die "unknown option ${B}$1${R}. Flags for claude go after ${B}--${R}." ;;
+      *)  [[ -z $match ]] || die "pass one account at a time"; match=$1 ;;
+    esac
+    shift
+  done
+  [[ $mode == pick && -n $match ]] && die "pick shows a menu, so it doesn't take an account name"
+
+  cur=$(save_current) || exit 1
+  collect "$cur"
+  (( $#rk )) || die "no saved accounts yet. Run ${A}oof login${R}, or ${A}/login${R} inside claude."
+
+  if [[ $mode == pick ]]; then
+    target=$(choose "$cur" $fresh) || exit $?
+  elif [[ -n $match ]]; then
+    target=$(resolve "$match") || exit 1
+    t=${rk[(Ie)$target]}
+    load_usage $fresh $t
+    rank $t
+    why=$uw[t]
+    case $us[t] in
+      3) warn "$(name_of "$target") is at its limit ($why)"; why="" ;;
+      1) warn "$(name_of "$target") is nearly full ($why)"; why="" ;;
+    esac
+  else
+    (( $#rk > 1 )) || die "only one account saved ($(name_of "$cur")). Add another with ${A}oof login${R}."
+    load_usage $fresh {1..$#rk}
+    rank {1..$#rk}
+    t=$(pick_best) c=${ra[(Ie)1]}
+    if (( us[t] == 3 )); then
+      i=$order[1] free=""
+      (( uf[i] )) && free=", $(when $uf[i])"
+      die "every account is at its limit. $(name_of "$rk[i]") frees up first$free."
+    fi
+    target=$rk[t] why=$uw[t]
+    if (( t == c )); then
+      case $us[c] in
+        0) say "staying on $(label "$target"), it still has room ${D}· $why${R}" ;;
+        1) say "staying on $(label "$target"), no other account has more room ${D}· $why${R}" ;;
+        *) warn "couldn't check usage, so staying on $(label "$target")" ;;
+      esac
+    fi
+    for i in $order; do
+      (( i != t )) && [[ -n $ux[i] ]] && hint "tip: $(name_of "$rk[i]") has $ux[i]"
+    done
+  fi
+
+  if [[ $target != $cur ]]; then
+    switch_to "$target"
+    nudge_auto
+    say "$(name_of "$cur") ${D}→${R} $(label "$target")${why:+ ${D}· $why${R}}"
+    warn_others
+  elif [[ $mode == pick || -n $match ]]; then
+    say "already on $(label "$target")"
+  fi
+
+  if (( launch )); then
+    [[ $claude_args == -c ]] && hint "resuming your last conversation"
+    exec claude "${claude_args[@]}"
+  fi
+  [[ $target != $cur ]] && hint "run claude -c to carry on where you left off"
+  return 0
+}
+
+# Keeps claude on an account with room, logging every check, change and
+# switch. In a terminal that's the foreground. oof start runs the same loop in
+# the background as `oof __serve`, logging only to the file.
+cmd_auto() {
+  local dry=0 once=0 serve=0 at_flag="" lockfd barfd=0 napper=0 again=0 awakepid=0 slot_seen="" noprofile=0 switched=0 lastcur="" chosen="" lasthold="" nap
+  local AUTO_ON="" lowfor="" lowid="" lowtext="" lowto=""
+  local -A good hist fetched saved_json saved_at pus psr perr wend asked backoff tries
+  case ${1-} in
+    on|off)
+      setting_set auto $1
+      nudge_auto
+      if [[ $1 == on ]]; then ok "auto switching is on"
+      else ok "auto switching is off. oof still watches and tells you when you run low"; fi
+      engine_pid >/dev/null || hint "nothing is running to do it. Start it with oof start, or oof auto in a terminal"
+      return 0 ;;
+  esac
+  while (( $# )); do
+    case $1 in
+      -n|--dry-run) dry=1 ;;
+      --once) once=1 ;;
+      --serve) serve=1 ;;
+      --at)
+        shift
+        [[ ${1-} == <50-99> ]] || die "--at takes a percentage from 50 to 99"
+        at_flag=$1 AUTO_AT=$1 ;;
+      -h|--help) cmd_help auto; return 0 ;;
+      *) die "unknown option ${B}$1${R}" ;;
+    esac
+    shift
+  done
+  colors_for 1
+  (( $(saved_keys | wc -l) )) || die "no saved accounts yet. Run ${A}oof login${R}, or ${A}/login${R} inside claude."
+
+  # asking for oof auto means asking for switching
+  (( serve || dry || once )) || setting_set auto on
+  if (( ! serve && ! dry && ! once )) && service_loaded; then
+    nudge_auto
+    say "oof is running in the background, and auto switching is on"
+    hint "following its log. Ctrl-C stops watching, and oof auto off stops switching"
+    exec tail -n 8 -f "$AUTO_LOG"
+  fi
+
+  if (( ! dry )); then
+    : >> "$STORE/auto.lock"
+    zsystem flock -t 0 -f lockfd "$STORE/auto.lock" 2>/dev/null \
+      || die "oof auto is already running$([[ -s $STORE/auto.pid ]] && print " (pid $(<$STORE/auto.pid))")"
+  fi
+  # keep the log to its last 5000 lines
+  if [[ -f $AUTO_LOG ]] && (( $(wc -l < $AUTO_LOG) > 10000 )); then
+    tail -n 5000 "$AUTO_LOG" > "$AUTO_LOG.tmp" && mv "$AUTO_LOG.tmp" "$AUTO_LOG"
+  fi
+  trap 'print; alog stop "$D" "stopped"; (( dry )) || rm -f "$STORE/auto.pid"; (( napper )) && kill $napper 2>/dev/null; exit 0' INT TERM
+  # oof set, oof auto on|off, oof switch and the menu bar send USR1 to have
+  # a change looked at now. One that lands mid-check gets another check
+  # straight after.
+  trap 'if (( napper )); then kill $napper 2>/dev/null; else again=1; fi' USR1
+  # only now that USR1 is handled, since it would otherwise end the process
+  (( dry )) || print $$ > "$STORE/auto.pid"
+
+  # in the background, alog's terminal half has nowhere to go
+  if (( serve )); then
+    exec >/dev/null
+  else
+    print
+    print -r -- "  ${A}${B}oof auto${R}  ${D}keeps claude on an account with room${R}"
+    print -r -- "  ${D}switches before any limit passes $AUTO_AT% · checks every ${AUTO_EVERY}s, ${AUTO_FAST}s when close, the rest every $(dur $AUTO_OTHERS)${R}"
+    print -r -- "  ${D}figures are session/weekly use for ${$(model_name):-all models} · log in ${AUTO_LOG/#$HOME/~}${R}"
+    print
+  fi
+  alog start "$A" "watching $(saved_keys | wc -l | tr -d ' ') accounts$( (( serve )) && print ' in the background')$( (( dry )) && print ', dry run so nothing switches')"
+  (( once )) || bar_start
+  while true; do
+    auto_tick
+    (( once )) && break
+    if (( again )); then again=0; continue; fi
+    # zsh holds a trap until a foreground sleep ends, so the sleep runs in the
+    # background and the trap ends it, letting Stop in the menu bar work at
+    # once. It doesn't get barfd, so it can't keep the widget's pipe open.
+    sleep $nap {barfd}>&- &
+    napper=$!
+    wait $napper
+    napper=0
+  done
+  (( dry )) || rm -f "$STORE/auto.pid"
+}
+
+# Starts oof in the background, or restarts it so it runs the current script.
+# A foreground oof auto holds the lock, so it's stopped first.
+cmd_start() {
+  local pid i
+  [[ ${1-} == (-h|--help) ]] && { cmd_help start; return 0 }
+  (( $(saved_keys | wc -l) )) || die "no saved accounts yet. Run ${A}oof login${R}, or ${A}/login${R} inside claude."
+  if service_loaded; then
+    launchctl bootout "gui/$UID/$LABEL" 2>/dev/null
+    for (( i = 0; i < 50; i++ )); do service_loaded || break; sleep 0.1; done
+    say "restarting oof in the background"
+  elif pid=$(engine_pid); then
+    kill -TERM $pid
+    for (( i = 0; i < 50; i++ )); do kill -0 $pid 2>/dev/null || break; sleep 0.1; done
+    say "moving oof auto (pid $pid) to the background"
+  fi
+  agent_write || die "couldn't write $STORE/$LABEL.plist"
+  launchctl bootstrap "gui/$UID" "$STORE/$LABEL.plist" 2>/dev/null \
+    || die "launchd wouldn't start it. ${A}launchctl print gui/$UID/$LABEL${R} may say why."
+  for (( i = 0; i < 50; i++ )); do engine_pid >/dev/null && break; sleep 0.1; done
+  engine_pid >/dev/null || die "it started but didn't come up. The end of ${A}oof log${R} may say why."
+  ok "oof is running in the background, with auto switching $(setting auto on)"
+  if [[ $(setting login on) == on ]]; then hint "it starts again when you log in. oof stop stops it"
+  else hint "oof stop stops it"; fi
+}
+
+cmd_stop() {
+  local pid
+  [[ ${1-} == (-h|--help) ]] && { cmd_help stop; return 0 }
+  if service_loaded; then
+    launchctl bootout "gui/$UID/$LABEL" 2>/dev/null
+    ok "stopped oof in the background"
+    [[ -f $HOME/Library/LaunchAgents/$LABEL.plist ]] && hint "it starts again when you log in, unless you run oof set login off"
+  elif pid=$(engine_pid); then
+    kill -TERM $pid
+    ok "stopped oof auto (pid $pid)"
+  else
+    say "oof isn't running"
+  fi
+  return 0
+}
+
+# Changes a setting, or lists them all. A running oof auto picks the change
+# up straight away.
+cmd_set() {
+  local k=${1-} v=${2-} m
+  case $k in
+    '')
+      colors_for 1
+      m=$(claude_model)
+      print
+      print -r -- "    ${A}auto${R}     $(setting auto on)"
+      print -r -- "    ${A}at${R}       $(setting at 99)%"
+      print -r -- "    ${A}model${R}    $(setting model "${m:+$m, }claude's default")"
+      print -r -- "    ${A}notify${R}   $(setting notify on)"
+      print -r -- "    ${A}login${R}    $(setting login on)"
+      print -r -- "    ${A}awake${R}    $(setting awake off)"
+      print
+      return 0 ;;
+    -h|--help) cmd_help set; return 0 ;;
+    auto|notify|login|awake) [[ $v == (on|off) ]] || die "${B}$k${R} takes on or off" ;;
+    at) [[ $v == <50-99> ]] || die "${B}at${R} takes a percentage from 50 to 99" ;;
+    model)
+      [[ $v == [[:alnum:]._-]## ]] || die "${B}model${R} takes a model name like opus or fable, all to count every limit, or default"
+      [[ $v == default ]] && v="" ;;
+    *) die "there's no setting called ${B}$k${R}. Run ${A}oof set${R} to see them." ;;
+  esac
+  setting_set $k "$v"
+  # keep the login copy of the agent in step
+  [[ $k == login ]] && agent_write
+  nudge_auto
+  ok "$k is now ${v:-the default}"
+}
+
+# Keeps the display awake while oof runs, like caffeinate -d, or says
+# whether it does.
+cmd_awake() {
+  case ${1-} in
+    '')
+      if [[ $(setting awake off) == on ]]; then say "oof keeps the display awake while it runs"
+      else say "oof lets the display sleep"; fi ;;
+    on|off)
+      setting_set awake $1
+      nudge_auto
+      if [[ $1 == on ]]; then ok "keeping the display awake while oof runs"
+      else ok "the display can sleep again"; fi ;;
+    -h|--help) cmd_help awake; return 0 ;;
+    *) die "${B}oof awake${R} takes on or off" ;;
+  esac
+  [[ $(setting awake off) == on ]] && ! engine_pid >/dev/null \
+    && hint "nothing is running to do it. Start it with oof start, or oof auto in a terminal"
+  return 0
+}
+
+# Shows the menu bar widget with made-up figures covering every state, for
+# working on its look without asking Anthropic for anything. With "low" the
+# active account has run out and the Switch offer shows too. Its menu runs
+# /usr/bin/true instead of oof, so nothing it does happens.
+cmd_demo() {
+  xcode-select -p >/dev/null 2>&1 || die "the widget needs Xcode's command line tools (xcode-select --install)"
+  bar_build || die "couldn't build the widget. swiftc's output is in ${STORE/#$HOME/~}/bar/build.log"
+  trap '' USR1
+  say "showing made-up figures in the menu bar. Ctrl-C ends it"
+  # this shell holds the widget's stdin open, and it ends when the widget does
+  coproc "$STORE/bar/oof" $$ /usr/bin/true
+  jq -nc --arg low "${1-}" --arg log "$AUTO_LOG" '
+        ($low == "low") as $low
+        | {note: "", settings: {auto: false, at: 99, model: "", notify: true, login: true, awake: true,
+                                log: $log, claudeModel: "opus", models: ["Fable"]},
+           alert: (if $low then {id: "demo", text: "you has used 99%. work has the most room.",
+                                 to: "work#demo", toName: "work"} else null end),
+           accounts: [
+             {key: "you#demo", name: "you@example.com", active: true, tone: (if $low then "r" else "g" end),
+              left: (if $low then 1 else 64 end), note: "", noteTone: "", rate: "+0.6%/min", eta: (if $low then "2m" else "45m" end),
+              limits: [{label: "Session", left: (if $low then 1 else 64 end), tone: (if $low then "r" else "g" end), note: "in 2h 50m", main: $low},
+                       {label: "Weekly", left: 28, tone: "y", note: "Tue 03:30", main: ($low | not)},
+                       {label: "Weekly Fable", left: 100, tone: "", note: "Tue 03:30", main: false}]},
+             {key: "work#demo", name: "work", active: false, left: 100, tone: "g", note: "", noteTone: "", rate: "", eta: "",
+              limits: [{label: "Session", left: 100, tone: "g", note: "idle", main: true}]},
+             {key: "team#demo", name: "team@example.com", active: false, left: 52, tone: "g", note: "stale 4m", noteTone: "y", rate: "", eta: "",
+              limits: [{label: "Session", left: 52, tone: "g", note: "in 1h 5m", main: true}]},
+             {key: "side#demo", name: "side@example.com", active: false, left: 0, tone: "r", note: "frees in 1h 40m", noteTone: "r", rate: "", eta: "",
+              limits: [{label: "Session", left: 0, tone: "r", note: "in 1h 40m", main: true}]},
+             {key: "old#demo", name: "old@example.com", active: false, left: null, tone: "", note: "rate limited", noteTone: "y", rate: "", eta: "",
+              limits: []}]}' >&p
+  wait $!
+}
+
+cmd_log() {
+  [[ -f $AUTO_LOG ]] || die "nothing logged yet. oof auto and oof start write to ${AUTO_LOG/#$HOME/~}"
+  case ${1-} in
+    '') tail -n 40 "$AUTO_LOG" ;;
+    -f|--follow) exec tail -n 20 -f "$AUTO_LOG" ;;
+    -h|--help) cmd_help log ;;
+    *) die "unknown option ${B}$1${R}" ;;
+  esac
+}
+
+cmd_ls() {
+  local i
+  colors_for 1
+  collect "$(current_key)"
+  if (( ! $#rk )); then
+    print -r -- "  ${D}No saved accounts yet.${R} Run ${A}oof login${R}, or ${A}/login${R} inside claude."
+    return 0
+  fi
+  print
+  print -r -- "  ${B}Accounts${R}  ${D}$#rk saved${R}"
+  print
+  for (( i = 1; i <= $#rk; i++ )); do fmt_row $i 0; done
+  print
+  print -r -- "  ${D}oof switch <name> to switch · oof pick for a menu · oof name to add a short name${R}"
+}
+
+# The dashboard: every account's limits, and which one is best to be on.
+cmd_status() {
+  local fresh=0 match="" cur res i t=0 c line w=7 tag model lbl pct sev rst note grp scope applies
+  local -a idx
+  while (( $# )); do
+    case $1 in
+      -f|--fresh) fresh=1 ;;
+      -h|--help) cmd_help status; return 0 ;;
+      -*) die "unknown option ${B}$1${R}" ;;
+      *)  [[ -z $match ]] || die "pass one account at a time"; match=$1 ;;
+    esac
+    shift
+  done
+  colors_for 1
+  cur=$(save_current 2>/dev/null)
+  [[ -n $cur ]] || cur=$(current_key)
+  collect "$cur"
+  if (( ! $#rk )); then
+    print -r -- "  ${D}No saved accounts yet.${R} Run ${A}oof login${R}, or ${A}/login${R} inside claude."
+    return 0
+  fi
+  if [[ -n $match ]]; then
+    res=$(resolve "$match") || exit 1
+    idx=( ${rk[(Ie)$res]} )
+  else
+    idx=( {1..$#rk} )
+  fi
+
+  load_usage $fresh $idx
+  rank $idx
+  model=$(model_name)
+  (( ! $#match && $#rk > 1 )) && t=$(pick_best)
+  c=${ra[(Ie)1]}
+  for i in $idx; do
+    for line in ${(f)ur[i]}; do
+      lbl=${line%%$'\x1f'*}
+      (( ${#lbl} > w )) && w=${#lbl}
+    done
+  done
+
+  print
+  print -r -- "  ${B}Accounts${R}  ${D}$#idx of $#rk${model:+ · limits for $model}${R}"
+  for i in $idx; do
+    print
+    line="  $( (( ra[i] )) && print "${G}●${R}" || print "${D}○${R}")  "
+    if [[ -n $rn[i] ]]; then line+="${A}${B}$rn[i]${R}  ${D}$re[i]${R}"
+    else                     line+="${B}$re[i]${R}"; fi
+    line+="${rp[i]:+  ${A2}$rp[i]${R}}"
+    case $us[i] in
+      1) tag="  ${Y}nearly full${R}" ;;
+      3) tag="  ${RED}at its limit${R}"
+         (( uf[i] )) && tag+=" ${D}· free $(when $uf[i])${R}" ;;
+      *) tag="" ;;
+    esac
+    (( i == t && us[i] < 3 )) && tag="  ${G}${B}best${R}$tag"
+    print -r -- "$line$tag"
+    if (( us[i] == 2 )); then
+      print -r -- "      ${Y}!${R}  ${D}$uw[i]${R}"
+      continue
+    fi
+    [[ -n $ur[i] ]] || { print -r -- "      ${D}no limits reported${R}"; continue }
+    for line in ${(f)ur[i]}; do
+      IFS=$'\x1f' read -r lbl pct sev rst note grp scope <<< "$line"
+      applies=1
+      [[ $grp != spend ]] && ! relevant "$scope" "$model" && applies=0
+      [[ $grp == session && -z $note ]] && (( ! rst )) && note="no window running"
+      usage_row $w "$lbl" "$pct" "$sev" "$rst" "$note" $applies
+    done
+  done
+
+  print
+  if (( t )); then
+    if (( us[t] == 3 )); then
+      i=$order[1] line=""
+      (( uf[i] )) && line=", $(when $uf[i])"
+      print -r -- "  ${RED}✗${R}  Every account is at its limit. $(name_of "$rk[i]") frees up first$line."
+    elif (( t == c )); then
+      print -r -- "  ${G}✓${R}  You're on the best account for now."
+    else
+      print -r -- "  ${A}${B}⇄${R}  $(name_of "$rk[t]") is the better bet right now. Run ${A}oof switch${R} to move."
+    fi
+    for i in $idx; do
+      (( i != t )) && [[ -n $ux[i] ]] && print -r -- "  ${Y}!${R}  $(name_of "$rk[i]") has $ux[i]."
+    done
+    print
+  fi
+  line=""
+  if service_loaded; then line="running in the background"
+  elif engine_pid >/dev/null; then line="oof auto is running in a terminal"
+  fi
+  [[ -n $line ]] && print -r -- "  ${D}$line, with auto switching $(setting auto on)$( [[ $(setting awake off) == on ]] && print ", keeping the display awake")${R}"
+  for i in $idx; do
+    (( rb[i] )) || continue
+    print -r -- "  ${D}Console accounts bill the API and are used last. ${A}oof cap <account> <dollars>${R}${D} stops one at an estimated spend.${R}"
+    break
+  done
+  print -r -- "  ${D}oof switch to move to the best · oof switch <name> · oof pick for a menu${R}"
+}
+
+cmd_save() {
+  [[ ${1-} == -q ]] && exec >/dev/null 2>&1
+  local k
+  k=$(save_current) || exit 1
+  [[ -n $k ]] && ok "saved $(label "$k")"
+  return 0
+}
+
+cmd_login() {
+  local k
+  save_current >/dev/null
+  hint "opening your browser. Make sure it's signed in to the account you want."
+  claude auth login "$@" || die "login didn't finish"
+  k=$(save_current) || exit 1
+  [[ -n $k ]] || die "couldn't save the new login"
+  ok "saved $(label "$k")"
+  if api_account "$k"; then
+    hint "this one bills the Console, so oof uses it last, after every plan account"
+    hint "set a spending cap with: oof cap ${k##*\#} <dollars>"
+    hint "use ${k##*\#} when the email is shared with another account"
+  fi
+  hint "give it a short name with: oof name ${k%\#*} <name>"
+}
+
+cmd_name() {
+  local k n other
+  (( $# == 2 )) || die "usage: ${B}oof name <account> <short-name>${R}  (use ${B}-${R} to clear it)"
+  k=$(resolve "$1") || exit 1
+  n=$2
+  if [[ $n == - ]]; then
+    meta_set "$k" 'del(.alias)'
+    ok "cleared the short name for ${B}${k%\#*}${R}"
+    return 0
+  fi
+  [[ $n == [A-Za-z0-9][A-Za-z0-9._-]# ]] || die "short names can use letters, digits, dots, dashes and underscores"
+  (( ${COMMANDS[(Ie)$n]} )) && die "${B}$n${R} is a oof command, so choose another name"
+  for other in ${(f)"$(saved_keys)"}; do
+    [[ $other != $k && $(meta "$other" alias) == $n ]] && die "${B}${other%\#*}${R} is already called ${B}$n${R}"
+  done
+  meta_set "$k" --arg n "$n" '.alias = $n'
+  ok "${B}${k%\#*}${R} is now ${A}${B}$n${R}"
+}
+
+cmd_rm() {
+  local k
+  [[ -n ${1-} ]] || die "usage: ${B}oof rm <account>${R}"
+  k=$(resolve "$1") || exit 1
+  [[ $k == $(current_key) ]] && die "$(name_of "$k") is the active login and the hooks would save it again. Switch away first."
+  if [[ -t 0 && ${2-} != -y ]]; then
+    print -u2 -n -- "  ${Y}?${R}  Forget $(label "$k")? ${D}[y/N]${R} "
+    read -q || { print -u2; exit 1 }
+    print -u2
+  fi
+  local p
+  for p in $PREFIX $LEGACY_PREFIXES; do
+    security delete-generic-password -a "$USER" -s "$p$k" >/dev/null 2>&1
+  done
+  security delete-generic-password -a "$USER" -s "$API_PREFIX$k" >/dev/null 2>&1
+  rm -f "$STORE/$k.json" "$META/$k.json" "$USAGE_DIR/$k.json" "$USAGE_DIR/$k.credits.json" \
+    "$USAGE_DIR/$k.credits.json.lock" "$USAGE_DIR/$k.lock" "$USAGE_DIR/$k.refreshed"
+  ok "forgot ${B}${k%\#*}${R}"
+}
+
+# One line for `oof cap`: the estimate, and the cap when one is set.
+cap_line() {
+  local k=$1 lim used from note
+  lim=$(meta "$k" creditLimitMicro)
+  used=$(meta "$k" creditUsedMicro)
+  from=$(meta "$k" creditFrom)
+  if [[ -z $lim ]]; then
+    if [[ -n $used && $used != 0 ]]; then note="API · est. $(micro_dollars "$used") used · no cap"
+    else note="API · no cap"; fi
+  else
+    note="est. $(micro_dollars "${used:-0}") of $(micro_dollars "$lim")"
+    [[ -n $from ]] && note+=" since $(strftime '%-d %b %H:%M' $from)"
+  fi
+  print -r -- "${B}$(name_of "$k")${R}  ${D}${k##*\#}${R}  $note"
+}
+
+# Sets, clears or shows the estimated spend cap on a Console account.
+# The meter starts when the cap is set. It counts Claude Code sessions for
+# that org from then on. It is not the balance shown in the Console.
+cmd_cap() {
+  local k micro from used i found=0
+  [[ ${1-} == (-h|--help) ]] && { cmd_help cap; return 0 }
+  colors_for 1
+  if (( $# == 0 )); then
+    collect "$(current_key)"
+    print
+    for (( i = 1; i <= $#rk; i++ )); do
+      (( rb[i] )) || continue
+      found=1
+      print -r -- "  $(cap_line "$rk[i]")"
+    done
+    (( found )) || print -r -- "  ${D}No Console accounts saved. ${A}oof login --console${R}${D} adds one.${R}"
+    print
+    print -r -- "  ${D}oof cap <account> <dollars> sets a cap. The meter starts then, and ignores older sessions.${R}"
+    print -r -- "  ${D}The figure is Claude Code's own estimate for that org, not the balance in the Console.${R}"
+    return 0
+  fi
+  k=$(resolve "$1") || exit 1
+  api_account "$k" || die "$(name_of "$k") is on a plan. A cap is for a Console account, which bills the API."
+  if (( $# == 1 )); then
+    print
+    print -r -- "  $(cap_line "$k")"
+    print
+    hint "this estimates Claude Code spend for this org. It is not the Console balance."
+    hint "oof cap ${k##*\#} <dollars> sets it, oof cap ${k##*\#} - clears it, oof cap ${k##*\#} reset starts the meter over"
+    return 0
+  fi
+  (( $# == 2 )) || die "usage: ${B}oof cap <account> [<dollars>|-|reset]${R}"
+  case $2 in
+    -)
+      meta_set "$k" 'del(.creditLimitMicro)' || die "couldn't update the cap"
+      write_credit_usage "$USAGE_DIR/$k.json" "$k"
+      ok "cleared the credit cap for $(label "$k"). It stays last in line, with no limit." ;;
+    reset)
+      meta_set "$k" --argjson t "$EPOCHSECONDS" '.creditFrom = $t | .creditUsedMicro = 0' \
+        || die "couldn't reset the meter"
+      rm -f "$USAGE_DIR/$k.credits.json" "$USAGE_DIR/$k.credits.json.tmp"
+      ok "reset the meter for $(label "$k"). It counts spend from now."
+      [[ -n $(meta "$k" creditLimitMicro) ]] && write_credit_usage "$USAGE_DIR/$k.json" "$k" ;;
+    *)
+      micro=$(dollars_to_micro "$2") || die "a cap looks like ${B}25${R} or ${B}\$25.50${R}. Use ${B}-${R} to clear it and ${B}reset${R} to start the meter over."
+      from=$(meta "$k" creditFrom)
+      if [[ -z $from ]]; then
+        meta_set "$k" --argjson lim "$micro" --argjson t "$EPOCHSECONDS" \
+          '.creditLimitMicro = $lim | .creditFrom = $t' || die "couldn't save the cap"
+      else
+        meta_set "$k" --argjson lim "$micro" '.creditLimitMicro = $lim' || die "couldn't save the cap"
+      fi
+      write_credit_usage "$USAGE_DIR/$k.json" "$k"
+      used=$(meta "$k" creditUsedMicro)
+      ok "$(label "$k") caps at $(micro_dollars "$micro"), with $(micro_dollars "${used:-0}") estimated so far"
+      hint "the meter started when the cap was set. The figure is an estimate, not the Console balance." ;;
+  esac
+  nudge_auto
+}
+
+# Completion helper: one "value:description" line per saved account.
+cmd_accounts() {
+  local i v
+  colors_for 1
+  collect "$(current_key)"
+  for (( i = 1; i <= $#rk; i++ )); do
+    v=${rn[i]:-${re[i]%% *}}
+    [[ -z $rn[i] && $re[i] == *' #'* ]] && v=$rk[i]
+    print -r -- "${v//:/\\:}:${re[i]}${rp[i]:+ · $rp[i]}$( (( ra[i] )) && print ' · active')"
+  done
+}
+
+cmd_completion() {
+  [[ ${1:-zsh} == zsh ]] || die "only zsh completion is available"
+  cat <<'EOF'
+#compdef oof
+# zsh completion for oof. Regenerate with: oof completion zsh > <dir in $fpath>/_oof
+
+_oof_accounts() {
+  local -a accts
+  accts=( ${(f)"$(oof __accounts 2>/dev/null)"} )
+  _describe -t accounts 'saved account' accts
+}
+
+_oof_commands() {
+  local -a cmds=(
+    'switch:move to the best account, or to the one you name'
+    'pick:choose an account from a menu'
+    'auto:keep switching to an account with room, or turn that on or off'
+    'start:run oof in the background with the menu bar widget'
+    'stop:stop oof running in the background'
+    'awake:keep the display awake while oof runs, on or off'
+    'set:change a setting, or list them'
+    'log:show or follow what oof auto has been doing'
+    'status:show limits for every account and the best one'
+    'ls:list saved accounts'
+    'login:sign in to another account and save it'
+    'name:give an account a short name'
+    'cap:set an estimated spend cap on a Console account'
+    'rm:forget a saved account'
+    'save:save the current login now'
+    'help:show help for oof or one command'
+    'completion:print this completion script'
+  )
+  _describe -t commands 'command' cmds
+}
+
+_oof_switch_options() {
+  local -a opts=(
+    '-c:resume your last conversation after switching'
+    '-f:check usage now instead of using the cache'
+    '--:start claude with the rest as its arguments'
+    '-h:show help'
+  )
+  _describe -t options 'option' opts
+}
+
+_oof_claude_flags() {
+  local -a flags=(
+    '-c:continue the most recent conversation'
+    '--continue:continue the most recent conversation'
+    '-r:choose a conversation to resume'
+    '--resume:choose a conversation to resume'
+    '--model:start with a specific model'
+    '--permission-mode:start in a permission mode'
+  )
+  _describe -t claude-flags 'claude option' flags
+}
+
+_oof() {
+  local i w has=0
+  for (( i = 2; i < CURRENT; i++ )); do
+    [[ $words[i] == -- ]] && { _oof_claude_flags; return }
+  done
+
+  if (( CURRENT == 2 )); then
+    _oof_commands
+    return
+  fi
+
+  case $words[2] in
+    switch|sw|use)
+      if [[ $PREFIX == -* ]]; then
+        _oof_switch_options
+      else
+        for w in ${words[3,CURRENT-1]}; do [[ $w != -* ]] && has=1; done
+        (( has )) || _oof_accounts
+      fi ;;
+    pick|menu)            [[ $PREFIX == -* ]] && _oof_switch_options ;;
+    auto)
+      local -a ao=('on:turn auto switching on' 'off:turn auto switching off, and just watch'
+                   '-n:show what it would do without switching' '--once:check once and exit'
+                   '--at:the percentage to switch at' '-h:show help')
+      (( CURRENT == 3 )) && _describe -t options option ao ;;
+    set)
+      if (( CURRENT == 3 )); then
+        local -a sk=('auto:switch automatically, on or off' 'at:the percentage to switch at'
+                     'model:which model'"'"'s limits count' 'notify:notifications, on or off'
+                     'login:start in the background at login, on or off'
+                     'awake:keep the display awake while oof runs, on or off')
+        _describe -t settings setting sk
+      elif (( CURRENT == 4 )); then
+        case $words[3] in
+          auto|notify|login|awake) compadd on off ;;
+          at)                compadd 90 95 99 ;;
+          model)             compadd default all opus sonnet fable ;;
+        esac
+      fi ;;
+    awake)                (( CURRENT == 3 )) && compadd on off ;;
+    log)                  (( CURRENT == 3 )) && { local -a lo=('-f:follow it as it grows'); _describe -t options option lo } ;;
+    status|usage|limits)
+      if [[ $PREFIX == -* ]]; then
+        local -a o=('-f:check usage now instead of using the cache'); _describe -t options option o
+      else
+        (( CURRENT == 3 )) && _oof_accounts
+      fi ;;
+    rm|remove|name|alias) (( CURRENT == 3 )) && _oof_accounts ;;
+    cap)
+      if (( CURRENT == 3 )); then _oof_accounts
+      elif (( CURRENT == 4 )); then compadd - reset
+      fi ;;
+    help)                 (( CURRENT == 3 )) && _oof_commands ;;
+    save)                 (( CURRENT == 3 )) && { local -a q=('-q:save silently'); _describe -t options option q } ;;
+    completion)           (( CURRENT == 3 )) && compadd zsh ;;
+  esac
+}
+
+_oof "$@"
+EOF
+}
+
+# ---------------------------------------------------------------- help
+
+section() { print; print -r -- "  ${B}${Y}$1${R}" }
+item()    { print -r -- "    ${A}${(r:24:)1}${R}$2" }
+para()    { print; print -r -- "$*" | fold -s -w 72 | sed 's/^/  /' }
+
+cmd_help() {
+  colors_for 1
+  if [[ -n ${1-} ]]; then help_for "$1"; return 0; fi
+  banner
+  section USAGE
+  print -r -- "    oof ${D}<command> [options]${R}"
+  section COMMANDS
+  item "oof"                  "show every account's limits and the best one"
+  item "oof switch"           "move to the best account if yours is running low"
+  item "oof switch <account>" "move to one account by short name or email"
+  item "oof pick"             "choose an account from a menu"
+  item "oof auto"             "keep switching to an account with room"
+  item "oof auto on|off"      "turn auto switching on or off"
+  item "oof awake on|off"     "keep the display awake while oof runs"
+  item "oof start"            "run in the background, with the menu bar widget"
+  item "oof stop"             "stop running in the background"
+  item "oof set [<key> <v>]"  "change a setting, or list them"
+  item "oof log [-f]"         "show or follow what oof auto has been doing"
+  item "oof status [account]" "same as plain oof, or for one account"
+  item "oof ls"               "list saved accounts"
+  item "oof login"            "sign in to another account and save it"
+  item "oof name <a> <n>"     "give an account a short name"
+  item "oof cap <a> <dollars>" "cap estimated spend on a Console account"
+  item "oof rm <account>"     "forget a saved account"
+  item "oof save"             "save the current login now"
+  item "oof help [command]"   "show this screen, or details for one command"
+  section "SWITCH OPTIONS"
+  item "-c"                   "resume your last conversation afterwards"
+  item "-- <args>"            "start claude with <args> afterwards"
+  item "-f"                   "check usage now instead of using the cache"
+  section EXAMPLES
+  item "oof switch -c"        "move to the best account and carry on"
+  item "oof switch work"      "switch to the account named work"
+  item "oof pick -- -r"       "choose an account, then a conversation"
+  print
+  print -r -- "  ${D}Nothing switches by itself unless oof auto or oof start runs with auto switching on.${R}"
+  print -r -- "  ${D}Logins are saved after every reply by the SessionStart and Stop hooks, so /login inside${R}"
+  print -r -- "  ${D}claude is picked up.${R}"
+  print
+}
+
+help_for() {
+  local usage text
+  case $1 in
+    switch|sw|use)
+      usage="oof switch [account] [-c] [-f] [-- claude args]"
+      text="With an account, switches to it. You can type its short name, its email, or any unique part of either, and oof warns you if that account is at its limit. With no account, oof checks everyone's usage and keeps you where you are while your account has room. A Console account bills the API, so this leaves it while any plan account can still be used. Once it's blocked, or at $RESERVE% or more of a limit (set OOF_RESERVE to change that), you move to the account whose unused headroom resets soonest, so less of it goes to waste. Accounts that are already partway through a 5 hour window come before ones that would start a new one. Limits tied to a model you don't use, like a weekly Fable cap when claude starts with opus, are ignored (oof set model changes which count). Switching never starts claude unless you pass -c to resume your last conversation, or put arguments for claude after --." ;;
+    pick|menu)
+      usage="oof pick [-c] [-f] [-- claude args]"
+      text="Shows a menu of your saved accounts with each one's usage and the best account selected. Move with the arrow keys or j and k, press a number to jump, enter to switch and esc or q to cancel. As with switch, claude only starts if you pass -c or arguments after --." ;;
+    auto)
+      usage="oof auto [on|off] [-n] [--once] [--at <percent>]"
+      text="Runs in the foreground and keeps claude on an account with room, turning auto switching on. A Console account bills the API, so it is used only when every plan account is full or unreachable, and oof cap can stop it at an estimated spend. If oof is already running in the background (see oof start), it turns auto switching on there and follows its log instead. It checks the active account every ${AUTO_EVERY} seconds (every ${AUTO_FAST} once it's within 10% of the switch point) and the others every few minutes, refreshing saved logins as their tokens expire. The usage endpoint rate limits hard, so while the active account has a 5 hour window running its session figure is read from the headers of a one token request to $PROBE_MODEL (about 200 tokens a check), and the endpoint is asked only every few minutes, backing off further after each refusal. You move before any limit that applies to your model passes $AUTO_AT% (set it with --at or OOF_AUTO_AT), or sooner if the current pace would cross that before the next check. It moves you to an account whose 5 hour window is already running, soonest reset first, so headroom that's about to expire gets used and new 5 hour clocks start as late as possible. Idle accounts come next, then ones with little room left. When your account is idle and another already has a window running, it moves you there too. If a claude session that was open during a switch refreshes the old account's token into the new login, auto gives the token back to its owner. Every check, change and switch is logged with its reasons, in the terminal and in ${AUTO_LOG/#$HOME/~}. While it runs, the menu bar shows the active account and how much of it is used, counting up as Claude Code's /usage does, and clicking it shows every account's limits, when each resets and how fast the active one is filling, coloured as in oof status. Click an account there to switch to it. auto then keeps you on any account you pick yourself, there or with oof switch, until it runs low. The same menu turns auto switching on and off, keeps the display awake, adds, renames and removes accounts, changes settings and quits. That's a small Swift program built on first use, so it needs Xcode's command line tools. Set OOF_AUTO_BAR=0 to go without it. oof auto off stops the switching but keeps watching: checks come half as often, and when the active account runs out you get a notification and an offer in the menu bar to switch to the account with the most room. oof auto on turns it back on. -n shows what it would do without switching and --once checks once and exits. claude sessions that are already open move to the new account on their next request, within about 30 seconds, so nothing needs restarting." ;;
+    start)
+      usage="oof start"
+      text="Runs oof auto in the background as a launchd agent, so the menu bar widget stays up with no terminal open. Whether it switches by itself follows oof auto on and off, which the menu can change too. If oof auto is running in a terminal, it moves to the background. Run it again after updating oof to restart on the new version. It starts again when you log in, unless you run oof set login off. Its log is in ${AUTO_LOG/#$HOME/~} (see oof log)." ;;
+    stop)
+      usage="oof stop"
+      text="Stops oof in the background, or oof auto in a terminal. Quit in the menu bar does the same. Starting at login is left as it is." ;;
+    set)
+      usage="oof set [<setting> <value>]"
+      text="With nothing after it, lists the settings. auto (on or off) is whether oof auto and oof start switch by themselves. at (50 to 99) is the percentage of any limit they switch at. model is which model's limits count, like opus or fable, all for every limit, or default for the model claude starts with. notify (on or off) is for notifications. login (on or off) is whether oof starts in the background when you log in. awake (on or off) is what oof awake sets. They live in ${SETTINGS/#$HOME/~}, a running oof auto picks changes up straight away, and the menu bar changes the same ones. OOF_AUTO_AT, OOF_MODEL and OOF_AUTO_NOTIFY still win for a run started from a terminal." ;;
+    awake)
+      usage="oof awake [on|off]"
+      text="Keeps the display from sleeping while oof runs, the way caffeinate -d does, until you turn it off. It's remembered, so it carries on after oof restarts or you log in with oof start. With nothing after it, says whether it's on. The menu bar shows a small cup while it is, and Keep Display Awake in its menu does the same thing. The caffeinate it runs ends with oof, so the display can always sleep again once oof stops." ;;
+    log)
+      usage="oof log [-f]"
+      text="Shows the last part of what oof auto has been doing: every check, change and switch with its reasons, from a terminal run or the background. -f keeps following it." ;;
+    status|usage|limits)
+      usage="oof status [account] [-f]"
+      text="What plain oof shows: the session and weekly limits for every saved account, or just one if you name it, plus which account is best to be on and a warning when an account's weekly usage is about to reset unused. A Console account shows an estimated API spend instead of those limits, and it is never the best account while a plan account can still be used. Limits that don't apply to the model claude starts with are dimmed, and oof set model changes which count. Results are cached for $USAGE_TTL seconds, and -f checks again. A saved login whose token has expired is refreshed and saved again, but the active login is left to claude so the two don't fight over it." ;;
+    ls|list)
+      usage="oof ls"
+      text="Lists saved accounts with their short name, email, plan and when each was last active. The green dot marks the active login. It works offline." ;;
+    login)
+      usage="oof login [claude auth login options]"
+      text="Saves the current login, runs claude auth login so you can sign in to another account in the browser, and then saves that one too. Make sure the browser is signed in to the account you want before you approve. Anything after login is passed through, so oof login --console signs in to a Console account. That login bills the API. oof keeps it for last, after every plan account, and oof cap sets a maximum estimated spend." ;;
+    cap)
+      usage="oof cap [<account> [<dollars>|-|reset]]"
+      text="Shows the estimated spend of each Console account, or of the one you name. oof cap <account> <dollars> sets a maximum, as 25 or \$25.50. The meter starts at that moment and counts Claude Code sessions for that organization from then on, using the prices Claude has cached. It does not read the balance in the Console, and it does not look at sessions from before the cap. Once the estimate reaches the cap, oof treats the account as full. With no cap the account is still last in line, and oof uses it only when every plan account is full or unreachable. oof cap <account> - clears the cap without forgetting the estimate. oof cap <account> reset starts the meter over. When two accounts share an email, name this one by its organization prefix, the part after #." ;;
+    name|alias)
+      usage="oof name <account> <short-name>"
+      text="Gives an account a short name like work or personal, which you can then type instead of the email. Use - as the name to remove it." ;;
+    rm|remove)
+      usage="oof rm <account> [-y]"
+      text="Deletes the saved token and details for an account. It asks first unless you pass -y. The active login can't be removed because the hooks would save it again, so switch away first." ;;
+    save)
+      usage="oof save [-q]"
+      text="Saves the active login. You rarely need it, since the SessionStart and Stop hooks run oof save -q after every reply. With -q nothing is printed." ;;
+    completion)
+      usage="oof completion zsh"
+      text="Prints the zsh completion script. To install it, save it as _oof in a folder on your fpath, for example: oof completion zsh > /opt/homebrew/share/zsh/site-functions/_oof" ;;
+    *) die "no help for ${B}$1${R}. Try ${A}oof help${R}." ;;
+  esac
+  print
+  print -r -- "  ${A}${B}oof ${1}${R}"
+  section USAGE
+  print -r -- "    $usage"
+  para "$text"
+  print
+}
+
+# ---------------------------------------------------------------- main
+
+case ${1-} in
+  '')                  cmd_status ;;
+  -h|--help|help)      shift; cmd_help "$@" ;;
+  status|usage|limits) shift; cmd_status "$@" ;;
+  switch|sw|use)       shift; cmd_switch switch "$@" ;;
+  pick|menu)           shift; cmd_switch pick "$@" ;;
+  auto)                shift; cmd_auto "$@" ;;
+  start)               shift; cmd_start "$@" ;;
+  stop)                shift; cmd_stop "$@" ;;
+  set)                 shift; cmd_set "$@" ;;
+  awake)               shift; cmd_awake "$@" ;;
+  __demo)              shift; cmd_demo "$@" ;;
+  log)                 shift; cmd_log "$@" ;;
+  __serve)             cmd_auto --serve ;;
+  ls|list)            cmd_ls ;;
+  save)                shift; cmd_save "$@" ;;
+  login)               shift; cmd_login "$@" ;;
+  name|alias)          shift; cmd_name "$@" ;;
+  cap)                 shift; cmd_cap "$@" ;;
+  rm|remove)           shift; cmd_rm "$@" ;;
+  completion)          shift; cmd_completion "$@" ;;
+  __accounts)          cmd_accounts ;;
+  *)
+    # nothing switches by accident: an account name on its own just says how
+    ( resolve "$1" ) >/dev/null 2>&1 \
+      && die "to switch to ${B}$1${R}, run ${A}oof switch $1${R}"
+    die "unknown command ${B}$1${R}. Run ${A}oof help${R} to see them." ;;
+esac
