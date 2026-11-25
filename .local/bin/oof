@@ -1725,6 +1725,7 @@ import SwiftUI
 
 struct Limit: Decodable {
   let label: String
+  let group: String
   let left: Int?
   let tone: String
   let note: String
@@ -1736,17 +1737,28 @@ struct Limit: Decodable {
 struct Account: Decodable {
   let key: String
   let name: String
+  let email: String
+  let plan: String
+  let api: Bool
   var active: Bool
   let left: Int?
   let tone: String
   let note: String
   let noteTone: String
+  let stale: Bool
   let rate: String
   let eta: String
+  let resetAt: Int?
+  let resetWindow: Int?
+  let cap: String?
+  let capInput: String?
+  let spent: String?
+  let capFrom: Int?
   let limits: [Limit]
   // a full account would only be switched away from again
   var pickable: Bool { !active && left != 0 }
   var main: Limit? { limits.first(where: \.main) }
+  var session: Limit? { limits.first(where: { $0.group == "session" }) }
   var used: Int? { left.map { 100 - $0 } }
 }
 
@@ -1805,13 +1817,59 @@ func width(_ s: String, _ font: NSFont) -> CGFloat {
   ceil((s as NSString).size(withAttributes: [.font: font]).width)
 }
 
-// What to call each account: its short name, else its email up to the @,
-// unless two accounts would then look the same.
+// Short display name for each account: its alias if set, else its email local
+// part. When two accounts share a local part, append a 4-char org tag (e.g.
+// "ankush · 75f7") when available, falling back to full name only if needed.
 func names(_ accounts: [Account]) -> [String: String] {
-  func local(_ n: String) -> String { n.contains("@") ? String(n.prefix { $0 != "@" }) : n }
-  let counts = Dictionary(accounts.map { (local($0.name), 1) }, uniquingKeysWith: +)
-  return Dictionary(accounts.map { a in (a.key, counts[local(a.name)]! > 1 ? a.name : local(a.name)) },
-                    uniquingKeysWith: { a, _ in a })
+  func local(_ n: String) -> String {
+    let base = n.split(separator: " ", maxSplits: 1).first.map(String.init) ?? n
+    return base.contains("@") ? String(base.prefix { $0 != "@" }) : base
+  }
+  func shortWithOrg(_ a: Account) -> String {
+    let loc = local(a.name)
+    if let hash = a.name.lastIndex(of: "#") {
+      let org = a.name[a.name.index(after: hash)...]
+      if !org.isEmpty { return "\(loc) · \(org.prefix(4))" }
+    }
+    return a.name
+  }
+  let localCounts = Dictionary(accounts.map { (local($0.name), 1) }, uniquingKeysWith: +)
+  let firstPass = accounts.map { a -> (String, String) in
+    let loc = local(a.name)
+    return (a.key, localCounts[loc, default: 0] > 1 ? shortWithOrg(a) : loc)
+  }
+  let passCounts = Dictionary(firstPass.map { ($0.1, 1) }, uniquingKeysWith: +)
+  return Dictionary(accounts.enumerated().map { idx, a in
+    let candidate = firstPass[idx].1
+    return (a.key, passCounts[candidate, default: 0] > 1 ? a.name : candidate)
+  }, uniquingKeysWith: { a, _ in a })
+}
+
+func compactDuration(_ sec: Int) -> String {
+  let s = max(0, sec)
+  if s >= 86400 { return "\(s / 86400)d" }
+  if s >= 3600 { return "\(Int((Double(s) / 3600.0).rounded()))h" }
+  if s >= 60 { return "\(s / 60)m" }
+  if s > 0 { return "<1m" }
+  return "--"
+}
+
+func mediumDuration(_ sec: Int) -> String {
+  let s = max(0, sec)
+  if s >= 86400 { return "\(s / 86400)d\(s % 86400 / 3600)h" }
+  if s >= 3600 {
+    let m = (s % 3600) / 60
+    return m == 0 ? "\(s / 3600)h" : "\(s / 3600)h\(m)m"
+  }
+  if s >= 60 { return "\(s / 60)m" }
+  if s > 0 { return "<1m" }
+  return "now"
+}
+
+func shortDate(_ epoch: Int) -> String {
+  let f = DateFormatter()
+  f.dateFormat = "d MMM"
+  return f.string(from: Date(timeIntervalSince1970: TimeInterval(epoch)))
 }
 
 let cup = NSImage(systemSymbolName: "cup.and.heat.waves.fill", accessibilityDescription: "Keeping the display awake")
@@ -1829,28 +1887,180 @@ func drawSymbol(_ image: NSImage?, in rect: NSRect) {
   tinted.draw(in: rect)
 }
 
-// The menu bar item: the account and how much of it is used, over a rounded
-// track filled to that much in the account's colour, and a cup while
-// the display is kept awake. It's drawn each time it's shown, so the text and
-// track follow the menu bar's light or dark look.
-func badge(_ a: Account, name: String, awake: Bool) -> NSImage {
-  let text = name + (a.used.map { " \($0)%" } ?? "")
-  let font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
+func drawCircleGauge(center: NSPoint, diameter: CGFloat, stroke: CGFloat,
+                     fraction: Double, color: NSColor, text: String,
+                     dashed: Bool = false, dimText: Bool = false) {
+  let r = (diameter - stroke) / 2
+  let trackRect = NSRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2)
+  let track = NSBezierPath(ovalIn: trackRect)
+  track.lineWidth = stroke
+  NSColor.labelColor.withAlphaComponent(0.22).setStroke()
+  track.stroke()
+
+  let f = min(1.0, max(0.0, fraction))
+  if f > 0.005 {
+    let arc = NSBezierPath()
+    arc.lineWidth = stroke
+    arc.lineCapStyle = .round
+    if dashed { arc.setLineDash([2.5, 2.5], count: 2, phase: 0) }
+    arc.appendArc(withCenter: center, radius: r, startAngle: 90, endAngle: 90 - 360 * CGFloat(f), clockwise: true)
+    color.setStroke()
+    arc.stroke()
+  }
+
+  let innerWidth = diameter - stroke * 2 - 2
+  var fontSize: CGFloat = text.count >= 3 ? 6.0 : 7.2
+  var font = NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .bold)
+  while fontSize > 5.0 && width(text, font) > innerWidth {
+    fontSize -= 0.5
+    font = NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .bold)
+  }
+  let tc = dimText ? NSColor.secondaryLabelColor : NSColor.labelColor
+  let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: tc]
+  let sz = (text as NSString).size(withAttributes: attrs)
+  let x = center.x - sz.width / 2
+  let y = center.y + font.descender - font.capHeight / 2
+  (text as NSString).draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
+}
+
+func drawPill(_ text: String, at origin: NSPoint, height: CGFloat) -> CGFloat {
+  let font = NSFont.systemFont(ofSize: 9.5, weight: .semibold)
+  let sz = (text as NSString).size(withAttributes: [.font: font])
+  let padX: CGFloat = 5
+  let pillW = ceil(sz.width) + padX * 2
+  let rect = NSRect(x: origin.x, y: origin.y, width: pillW, height: height)
+  NSColor.labelColor.withAlphaComponent(0.14).setFill()
+  NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4).fill()
+  let y = rect.midY + font.descender - font.capHeight / 2
+  (text as NSString).draw(at: NSPoint(x: rect.minX + padX, y: y),
+                          withAttributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor])
+  return pillW
+}
+
+// The menu bar item: optional awake cup, short account name, and two 20pt
+// circular gauges (usage % and time left to reset). Uncapped Console accounts
+// show an API pill instead of empty rings; capped Console accounts show their
+// spend % ring alongside the API pill.
+func badge(_ a: Account, name: String, awake: Bool, now: Date) -> NSImage {
+  let height: CGFloat = 21
+  let ringDia: CGFloat = 19.5
+  let stroke: CGFloat = 2.2
+  let ringGap: CGFloat = 4
   let lead: CGFloat = awake ? 16 : 0
-  return NSImage(size: NSSize(width: lead + width(text, font), height: 18), flipped: false) { rect in
-    if awake { drawSymbol(cup, in: NSRect(x: 0, y: 3, width: 12, height: 12)) }
-    (text as NSString).draw(at: NSPoint(x: lead, y: 5), withAttributes: [.font: font, .foregroundColor: NSColor.labelColor])
-    let h: CGFloat = 3
-    let track = NSRect(x: lead, y: 1, width: rect.width - lead, height: h)
-    NSColor.labelColor.withAlphaComponent(0.25).setFill()
-    NSBezierPath(roundedRect: track, xRadius: h / 2, yRadius: h / 2).fill()
-    if let used = a.used, used > 0 {
-      var fill = track
-      fill.size.width = max(h, track.width * CGFloat(min(used, 100)) / 100)
-      (color(a.tone) ?? .labelColor).setFill()
-      NSBezierPath(roundedRect: fill, xRadius: h / 2, yRadius: h / 2).fill()
+  let nameFont = NSFont.systemFont(ofSize: 12, weight: .medium)
+  let nameW = width(name, nameFont)
+  let showApiPill = a.api
+  let hasUsage = a.used != nil
+  let apiPillFont = NSFont.systemFont(ofSize: 9.5, weight: .semibold)
+  let apiPillW = showApiPill ? (ceil(width("API", apiPillFont)) + 10) : 0
+
+  var totalW = lead + nameW
+  if hasUsage || !a.api {
+    totalW += 6 + ringDia
+    if !a.api {
+      totalW += ringGap + ringDia
+    } else if showApiPill {
+      totalW += ringGap + apiPillW
+    }
+  } else if showApiPill {
+    totalW += 6 + apiPillW
+  }
+
+  return NSImage(size: NSSize(width: ceil(totalW), height: height), flipped: false) { rect in
+    if awake { drawSymbol(cup, in: NSRect(x: 0, y: (height - 12) / 2, width: 12, height: 12)) }
+    let nameY = rect.midY + nameFont.descender - nameFont.capHeight / 2
+    (name as NSString).draw(at: NSPoint(x: lead, y: nameY),
+                            withAttributes: [.font: nameFont, .foregroundColor: NSColor.labelColor])
+
+    var cursor = lead + nameW + 6
+    if let used = a.used {
+      let c1 = NSPoint(x: cursor + ringDia / 2, y: rect.midY)
+      drawCircleGauge(center: c1, diameter: ringDia, stroke: stroke,
+                      fraction: Double(min(max(used, 0), 100)) / 100.0,
+                      color: color(a.tone) ?? .labelColor,
+                      text: "\(used)", dashed: a.stale)
+      cursor += ringDia + ringGap
+    } else if !a.api {
+      let c1 = NSPoint(x: cursor + ringDia / 2, y: rect.midY)
+      drawCircleGauge(center: c1, diameter: ringDia, stroke: stroke,
+                      fraction: 0, color: .secondaryLabelColor,
+                      text: "!", dimText: true)
+      cursor += ringDia + ringGap
+    }
+
+    if !a.api {
+      let c2 = NSPoint(x: cursor + ringDia / 2, y: rect.midY)
+      if let rst = a.resetAt, let win = a.resetWindow, win > 0 {
+        let rem = max(0, rst - Int(now.timeIntervalSince1970))
+        let frac = Double(rem) / Double(win)
+        drawCircleGauge(center: c2, diameter: ringDia, stroke: stroke,
+                        fraction: frac, color: .systemTeal,
+                        text: compactDuration(rem))
+      } else {
+        drawCircleGauge(center: c2, diameter: ringDia, stroke: stroke,
+                        fraction: 0, color: .secondaryLabelColor,
+                        text: "--", dimText: true)
+      }
+    } else if showApiPill {
+      _ = drawPill("API", at: NSPoint(x: cursor, y: (height - 15) / 2), height: 15)
     }
     return true
+  }
+}
+
+func badgeTooltip(_ a: Account, now: Date) -> String {
+  var parts = [a.email.isEmpty ? a.name : a.email]
+  if !a.plan.isEmpty { parts[0] += " (\(a.plan))" }
+  if let used = a.used {
+    if a.api, let spent = a.spent, let cap = a.cap {
+      parts.append("\(used)% · est. \(spent) of \(cap)")
+    } else {
+      parts.append("\(used)% used")
+    }
+  } else if a.api {
+    parts.append(a.note.isEmpty ? "API · no cap" : a.note)
+  }
+  if let rst = a.resetAt {
+    let rem = max(0, rst - Int(now.timeIntervalSince1970))
+    parts.append(rem > 0 ? "resets in \(mediumDuration(rem))" : "resetting now")
+  }
+  if a.stale && !a.note.isEmpty { parts.append(a.note) }
+  return parts.joined(separator: " · ")
+}
+
+struct RingGauge: View {
+  let fraction: Double
+  let color: Color
+  let text: String
+  var size: CGFloat = 44
+  var lineWidth: CGFloat = 4
+  var dashed: Bool = false
+  var dimText: Bool = false
+
+  var body: some View {
+    let clamped = min(1.0, max(0.0, fraction))
+    let fontSize: CGFloat = size >= 40 ? (text.count >= 4 ? 9.5 : 11) : (text.count >= 3 ? 6.2 : 7.2)
+    ZStack {
+      Circle()
+        .stroke(.primary.opacity(0.16), lineWidth: lineWidth)
+      if clamped > 0.005 {
+        Circle()
+          .trim(from: 0, to: clamped)
+          .stroke(color, style: StrokeStyle(
+            lineWidth: lineWidth,
+            lineCap: .round,
+            dash: dashed ? [3, 3] : []
+          ))
+          .rotationEffect(.degrees(-90))
+      }
+      Text(text)
+        .font(.system(size: fontSize, weight: .bold).monospacedDigit())
+        .foregroundStyle(dimText ? .secondary : .primary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+    }
+    .frame(width: size, height: size)
+    .animation(.easeOut(duration: 0.35), value: clamped)
   }
 }
 
@@ -1869,70 +2079,97 @@ struct Meter: View {
         }
       }
     }
-    .frame(minWidth: 100, maxWidth: .infinity, minHeight: height, maxHeight: height)
+    .frame(minWidth: 90, maxWidth: .infinity, minHeight: height, maxHeight: height)
     .animation(.easeOut(duration: 0.35), value: used)
     .accessibilityElement()
     .accessibilityLabel(used.map { "\($0) percent used" } ?? "usage unknown")
   }
 }
 
-// The latest line from oof. Both views watch it, so an update while the menu
-// is open changes them in place and the bars move to their new values.
+// The latest line from oof plus a clock date for live reset countdowns.
 final class Model: ObservableObject {
   @Published var u = Update(note: "Checking…", accounts: [])
+  @Published var now = Date()
 }
 
-// The account in use: how much of its session is used, big, and the pace, then every limit in the order the API lists them (session, weekly,
-// model weeklies), so the tightest one doesn't jump ahead of the session.
+// The account in use: header with plan badge and pace, dual 44pt hero rings
+// (or Console spend card with cap actions), then remaining limits.
 struct HeroView: View {
   @ObservedObject var model: Model
+  let setCap: (Account) -> Void
+  let resetCap: (Account) -> Void
+  let clearCap: (Account) -> Void
 
   var body: some View {
     let u = model.u
-    VStack(alignment: .leading, spacing: 7) {
+    VStack(alignment: .leading, spacing: 8) {
       if let a = u.accounts.first(where: \.active) {
-        hero(a, name: names(u.accounts)[a.key] ?? a.name, at: u.settings?.at)
+        hero(a, shortName: names(u.accounts)[a.key] ?? a.name, at: u.settings?.at)
       } else {
         Text(u.note).foregroundStyle(.secondary).fixedSize()
       }
     }
     .font(Font(menuFont))
     .padding(.horizontal, 14)
-    .padding(.top, 6)
-    .padding(.bottom, 4)
+    .padding(.top, 8)
+    .padding(.bottom, 6)
   }
 
-  @ViewBuilder func hero(_ a: Account, name: String, at: Int?) -> some View {
-    HStack(alignment: .firstTextBaseline) {
-      Text(name).font(.system(size: 15, weight: .semibold)).fixedSize()
-      Spacer(minLength: 24)
-      if let used = a.used {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-          Text("\(used)%")
-            .font(.system(size: 20, weight: .semibold).monospacedDigit())
-            .foregroundStyle(paint(a.tone, or: .primary))
-          Text("used").foregroundStyle(.secondary)
+  @ViewBuilder func hero(_ a: Account, shortName: String, at: Int?) -> some View {
+    let pace = detail(a, at: at)
+    VStack(alignment: .leading, spacing: 2) {
+      HStack(alignment: .center, spacing: 6) {
+        Text(shortName).font(.system(size: 15, weight: .semibold)).fixedSize()
+        if !a.plan.isEmpty {
+          Text(a.plan)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(a.api ? Color.secondary : Color.accentColor)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(a.api ? Color.primary.opacity(0.08) : Color.accentColor.opacity(0.15)))
+            .fixedSize()
         }
+        Spacer(minLength: 16)
+        if !pace.isEmpty {
+          Text(pace)
+            .font(.system(size: 10.5).monospacedDigit())
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 5).fill(.primary.opacity(0.06)))
+            .fixedSize()
+        } else if !a.note.isEmpty && !a.api {
+          Text(a.note)
+            .font(.system(size: 11))
+            .foregroundStyle(paint(a.noteTone, or: .secondary))
+            .fixedSize()
+        }
+      }
+      if !a.email.isEmpty && a.email != shortName {
+        HStack(spacing: 4) {
+          Text(a.email).foregroundStyle(.secondary)
+          if !a.note.isEmpty && !pace.isEmpty {
+            Text("· \(a.note)").foregroundStyle(paint(a.noteTone, or: .secondary))
+          }
+        }
+        .font(.system(size: 11))
         .fixedSize()
       }
     }
-    let pace = detail(a, at: at)
-    if !pace.isEmpty || !a.note.isEmpty {
-      HStack(spacing: 0) {
-        Text(pace).foregroundStyle(.secondary)
-        if !a.note.isEmpty {
-          Text(pace.isEmpty ? a.note : " · \(a.note)").foregroundStyle(paint(a.noteTone, or: .secondary))
-        }
-      }
-      .font(.system(size: 12))
-      .fixedSize()
+
+    if a.api {
+      apiHero(a)
+    } else if a.used != nil || a.resetAt != nil {
+      planHero(a)
     }
-    if !a.limits.isEmpty {
-      let labelWidth = a.limits.map { width($0.label, rowFont) }.max() ?? 0
-      let noteWidth = a.limits.map { width($0.note, rowFont) }.max() ?? 0
+
+    let subLimits = a.api ? [] : remainingLimits(a)
+    if !subLimits.isEmpty {
+      let labelWidth = subLimits.map { width($0.label, rowFont) }.max() ?? 0
+      let noteWidth = subLimits.map { width($0.note, rowFont) }.max() ?? 0
       VStack(alignment: .leading, spacing: 5) {
-        ForEach(Array(a.limits.enumerated()), id: \.offset) { _, l in
-          HStack(spacing: 10) {
+        ForEach(Array(subLimits.enumerated()), id: \.offset) { _, l in
+          HStack(spacing: 8) {
             Text(l.label)
               .foregroundStyle(l.tone.isEmpty ? .secondary : .primary)
               .fixedSize()
@@ -1943,13 +2180,135 @@ struct HeroView: View {
               .foregroundStyle(paint(l.tone, or: .secondary))
               .fixedSize()
               .frame(minWidth: width("100%", digitFont), alignment: .trailing)
-            Text(l.note).foregroundStyle(.secondary).fixedSize()
+            Text(l.note)
+              .foregroundStyle(.secondary)
+              .fixedSize()
               .frame(minWidth: noteWidth, alignment: .leading)
           }
         }
       }
       .font(Font(rowFont))
       .padding(.top, 2)
+    }
+  }
+
+  @ViewBuilder func planHero(_ a: Account) -> some View {
+    let featuredLabel = a.main?.group == "weekly" && a.used == 100 ? a.main?.label ?? "Weekly" : (a.session?.label ?? "Session")
+    let usedVal = a.used ?? 0
+    let leftVal = max(0, 100 - usedVal)
+    HStack(spacing: 14) {
+      HStack(spacing: 10) {
+        RingGauge(
+          fraction: a.used.map { Double($0) / 100.0 } ?? 0,
+          color: paint(a.tone, or: .secondary),
+          text: a.used.map { "\($0)%" } ?? "--",
+          size: 44, lineWidth: 4, dashed: a.stale, dimText: a.used == nil
+        )
+        VStack(alignment: .leading, spacing: 1) {
+          Text(featuredLabel).font(.system(size: 11.5, weight: .semibold)).fixedSize()
+          Text(a.used != nil ? "\(leftVal)% left" : "unknown")
+            .font(.system(size: 10.5).monospacedDigit())
+            .foregroundStyle(.secondary)
+            .fixedSize()
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+
+      HStack(spacing: 10) {
+        if let rst = a.resetAt, let win = a.resetWindow, win > 0 {
+          let rem = max(0, rst - Int(model.now.timeIntervalSince1970))
+          RingGauge(
+            fraction: Double(rem) / Double(win),
+            color: Color(nsColor: .systemTeal),
+            text: mediumDuration(rem),
+            size: 44, lineWidth: 4
+          )
+          VStack(alignment: .leading, spacing: 1) {
+            Text("Resets in").font(.system(size: 11.5, weight: .semibold)).fixedSize()
+            Text(win >= 86400 ? "of 7d window" : "of 5h window")
+              .font(.system(size: 10.5))
+              .foregroundStyle(.secondary)
+              .fixedSize()
+          }
+        } else {
+          RingGauge(
+            fraction: 0,
+            color: .secondary,
+            text: "--",
+            size: 44, lineWidth: 4, dimText: true
+          )
+          VStack(alignment: .leading, spacing: 1) {
+            Text("Window").font(.system(size: 11.5, weight: .semibold)).fixedSize()
+            Text("idle")
+              .font(.system(size: 10.5))
+              .foregroundStyle(.secondary)
+              .fixedSize()
+          }
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .padding(10)
+    .background(RoundedRectangle(cornerRadius: 8).fill(.primary.opacity(0.05)))
+  }
+
+  @ViewBuilder func apiHero(_ a: Account) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(spacing: 12) {
+        if let used = a.used {
+          RingGauge(
+            fraction: Double(used) / 100.0,
+            color: paint(a.tone, or: .secondary),
+            text: "\(used)%",
+            size: 44, lineWidth: 4
+          )
+        }
+        VStack(alignment: .leading, spacing: 2) {
+          if let cap = a.cap {
+            Text("est. \(a.spent ?? "$0.00") of \(cap)")
+              .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
+              .fixedSize()
+            Text(a.capFrom.map { "local meter since \(shortDate($0))" } ?? "local spend cap")
+              .font(.system(size: 10.5))
+              .foregroundStyle(.secondary)
+              .fixedSize()
+          } else {
+            Text(a.spent.map { "est. \($0) used · no cap" } ?? "API · no cap set")
+              .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
+              .fixedSize()
+            Text("bills Console · used only when plans are full")
+              .font(.system(size: 10.5))
+              .foregroundStyle(.secondary)
+              .fixedSize()
+          }
+        }
+        Spacer(minLength: 8)
+      }
+      HStack(spacing: 6) {
+        Button(a.cap != nil ? "Edit Cap…" : "Set Cap…") { setCap(a) }
+          .buttonStyle(.bordered)
+          .controlSize(.small)
+        if a.cap != nil || a.spent != nil {
+          Button("Reset Meter") { resetCap(a) }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        if a.cap != nil {
+          Button("Clear Cap") { clearCap(a) }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+      }
+    }
+    .padding(10)
+    .background(RoundedRectangle(cornerRadius: 8).fill(.primary.opacity(0.05)))
+  }
+
+  func remainingLimits(_ a: Account) -> [Limit] {
+    let featuredWeekly = a.main?.group == "weekly" && a.used == 100
+    return a.limits.filter { l in
+      if featuredWeekly { return l.label != a.main?.label }
+      return l.group != "session"
     }
   }
 
@@ -1967,7 +2326,7 @@ final class Hover: ObservableObject {
   @Published var on = false
 }
 
-// One line for every other account, in shared columns. Click one to switch.
+// One line for every other account, with a 22pt mini ring, plan pill, and status.
 struct RowsView: View {
   @ObservedObject var model: Model
   let pick: (String) -> Void
@@ -1976,10 +2335,10 @@ struct RowsView: View {
     let u = model.u
     let shown = names(u.accounts)
     let others = u.accounts.filter { !$0.active }
-    let right = others.map { $0.note.isEmpty ? ($0.main?.note ?? "") : $0.note }
+    let right = others.map { rowNote($0) }
     let nameWidth = others.map { width(shown[$0.key] ?? $0.name, menuFont) }.max() ?? 0
     let noteWidth = right.map { width($0, rowFont) }.max() ?? 0
-    VStack(alignment: .leading, spacing: 0) {
+    VStack(alignment: .leading, spacing: 2) {
       ForEach(Array(zip(others, right).enumerated()), id: \.element.0.key) { _, pair in
         Row(a: pair.0, name: shown[pair.0.key] ?? pair.0.name, right: pair.1,
             nameWidth: nameWidth, noteWidth: noteWidth, pick: pick)
@@ -1988,6 +2347,19 @@ struct RowsView: View {
     .font(Font(menuFont))
     .padding(.horizontal, 6)
     .padding(.vertical, 3)
+  }
+
+  func rowNote(_ a: Account) -> String {
+    if a.api {
+      if let cap = a.cap { return "est. \(a.spent ?? "$0.00") / \(cap)" }
+      if let spent = a.spent, spent != "$0.00" { return "est. \(spent) · no cap" }
+      return "no cap"
+    }
+    if !a.note.isEmpty {
+      if a.stale, let mainNote = a.main?.note, !mainNote.isEmpty { return "\(a.note) · \(mainNote)" }
+      return a.note
+    }
+    return a.main?.note ?? ""
   }
 }
 
@@ -2001,23 +2373,41 @@ struct Row: View {
   @StateObject private var hover = Hover()
 
   var body: some View {
-    HStack(spacing: 10) {
-      Text(name).fixedSize().frame(minWidth: nameWidth, alignment: .leading)
-      Meter(used: a.used, tone: a.tone, height: 5)
-      Text(a.used.map { "\($0)%" } ?? "")
-        .font(Font(digitFont))
-        .foregroundStyle(paint(a.tone, or: .secondary))
-        .fixedSize()
-        .frame(minWidth: width("100%", digitFont), alignment: .trailing)
+    HStack(spacing: 8) {
+      if a.api && a.used == nil {
+        RingGauge(fraction: 0, color: .secondary, text: "API", size: 22, lineWidth: 2, dimText: true)
+      } else {
+        RingGauge(
+          fraction: a.used.map { Double($0) / 100.0 } ?? 0,
+          color: paint(a.tone, or: .secondary),
+          text: a.used.map { "\($0)" } ?? "!",
+          size: 22, lineWidth: 2.2, dashed: a.stale, dimText: a.used == nil
+        )
+      }
+      HStack(spacing: 5) {
+        Text(name).fixedSize()
+        if !a.plan.isEmpty {
+          Text(a.plan)
+            .font(.system(size: 9.5, weight: .medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 0.5)
+            .background(RoundedRectangle(cornerRadius: 4).fill(.primary.opacity(0.06)))
+            .fixedSize()
+        }
+      }
+      .frame(minWidth: nameWidth, alignment: .leading)
+      Spacer(minLength: 10)
       Text(right)
-        .font(Font(rowFont))
+        .font(Font(rowFont).monospacedDigit())
         .foregroundStyle(paint(a.noteTone, or: .secondary))
         .fixedSize()
-        .frame(minWidth: noteWidth, alignment: .leading)
+        .frame(minWidth: noteWidth, alignment: .trailing)
     }
     .padding(.horizontal, 8)
     .padding(.vertical, 5)
     .frame(maxWidth: .infinity, alignment: .leading)
+    .opacity(a.left == 0 ? 0.72 : 1.0)
     .background(RoundedRectangle(cornerRadius: 6).fill(hover.on && a.pickable ? Color.primary.opacity(0.1) : .clear))
     .contentShape(Rectangle())
     .onHover { hover.on = $0 }
@@ -2109,11 +2499,18 @@ final class Widget: NSObject, NSMenuDelegate {
   var stale = false
   var nudged = Date.distantPast
   var offered = ""
+  var ticker: Timer?
 
   override init() {
-    heroView = NSHostingView(rootView: HeroView(model: model))
+    heroView = NSHostingView(rootView: HeroView(model: model, setCap: { _ in }, resetCap: { _ in }, clearCap: { _ in }))
     rowsView = NSHostingView(rootView: RowsView(model: model, pick: { _ in }))
     super.init()
+    heroView.rootView = HeroView(
+      model: model,
+      setCap: { [weak self] a in self?.dismissAnd { self?.setCap(a) } },
+      resetCap: { [weak self] a in self?.dismissAnd { self?.resetCap(a) } },
+      clearCap: { [weak self] a in self?.dismissAnd { self?.clearCap(a) } }
+    )
     rowsView.rootView = RowsView(model: model) { [weak self] key in self?.pick(key) }
     hero.view = heroView
     rows.view = rowsView
@@ -2125,18 +2522,40 @@ final class Widget: NSObject, NSMenuDelegate {
     item.button?.font = .monospacedDigitSystemFont(ofSize: NSFont.menuBarFont(ofSize: 0).pointSize, weight: .regular)
     item.button?.imagePosition = .imageLeading
     show(model.u)
+    ticker = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+      self?.refreshClock()
+    }
   }
 
-  func show(_ u: Update) {
+  func dismissAnd(_ work: @escaping () -> Void) {
+    menu.cancelTracking()
+    DispatchQueue.main.async(execute: work)
+  }
+
+  func refreshClock() {
+    let now = Date()
+    model.now = now
+    renderBadge(last, now: now)
+  }
+
+  func renderBadge(_ u: Update, now: Date) {
     let awake = u.settings?.awake ?? false
     if let on = u.accounts.first(where: { $0.active }) {
       item.button?.title = ""
-      item.button?.image = badge(on, name: names(u.accounts)[on.key] ?? on.name, awake: awake)
+      item.button?.image = badge(on, name: names(u.accounts)[on.key] ?? on.name, awake: awake, now: now)
+      item.button?.toolTip = badgeTooltip(on, now: now)
     } else {
       item.button?.title = "oof"
       item.button?.image = awake ? cup : nil
+      item.button?.toolTip = u.note.isEmpty ? "oof" : u.note
     }
+  }
+
+  func show(_ u: Update) {
+    let now = Date()
+    model.now = now
     model.u = u
+    renderBadge(u, now: now)
     fit()
     // SwiftUI lays the new content out on the next pass
     DispatchQueue.main.async { self.fit() }
@@ -2147,7 +2566,7 @@ final class Widget: NSObject, NSMenuDelegate {
 
   // Both views as wide as the wider one, so their edges line up.
   func fit() {
-    let w = max(280, heroView.fittingSize.width, rowsView.fittingSize.width)
+    let w = max(336, heroView.fittingSize.width, rowsView.fittingSize.width)
     heroView.frame.size = NSSize(width: w, height: heroView.fittingSize.height)
     rowsView.frame.size = NSSize(width: w, height: rowsView.fittingSize.height)
   }
@@ -2174,11 +2593,29 @@ final class Widget: NSObject, NSMenuDelegate {
     menu.addItem(entry("Add Account…", symbol: "person.badge.plus") { [weak self] in self?.addAccount() })
     if !u.accounts.isEmpty {
       menu.addItem(submenu("Manage Accounts", symbol: "person.2", u.accounts.map { a in
-        submenu(a.name, symbol: "person.crop.circle", [
+        var items: [NSMenuItem] = [
           entry("Rename…", symbol: "pencil") { [weak self] in self?.rename(a) },
-          // oof rm won't forget the active login, since claude's hooks would save it again
-          entry("Remove…", symbol: "trash", enabled: !a.active) { [weak self] in self?.remove(a) },
-        ])
+        ]
+        if a.api {
+          items.append(.separator())
+          items.append(entry(a.cap != nil ? "Change Spend Cap…" : "Set Spend Cap…", symbol: "dollarsign.circle") { [weak self] in
+            self?.setCap(a)
+          })
+          if a.cap != nil || a.spent != nil {
+            items.append(entry("Reset Spend Meter", symbol: "arrow.counterclockwise") { [weak self] in
+              self?.resetCap(a)
+            })
+          }
+          if a.cap != nil {
+            items.append(entry("Clear Spend Cap", symbol: "xmark.circle") { [weak self] in
+              self?.clearCap(a)
+            })
+          }
+        }
+        items.append(.separator())
+        // oof rm won't forget the active login, since claude's hooks would save it again
+        items.append(entry("Remove…", symbol: "trash", enabled: !a.active) { [weak self] in self?.remove(a) })
+        return submenu(a.name, symbol: "person.crop.circle", items)
       }))
     }
     if let s = u.settings { menu.addItem(submenu("Settings", symbol: "gearshape", settings(s))) }
@@ -2219,6 +2656,7 @@ final class Widget: NSObject, NSMenuDelegate {
   // the numbers freshen while you read them.
   func menuWillOpen(_ menu: NSMenu) {
     open = true
+    refreshClock()
     if oof > 0 && Date().timeIntervalSince(nudged) > 15 {
       nudged = Date()
       kill(oof, SIGUSR1)
@@ -2300,6 +2738,39 @@ final class Widget: NSObject, NSMenuDelegate {
     let name = field.stringValue.trimmingCharacters(in: .whitespaces)
     // an empty name clears it, as - does in oof name
     run(["name", a.key, name.isEmpty ? "-" : name])
+  }
+
+  func setCap(_ a: Account) {
+    let alert = dialog("Spend cap for \(a.name)")
+    alert.informativeText = "Maximum estimated Claude Code spend in USD for this Console org (leave empty or use - to clear)."
+    let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+    field.placeholderString = "250"
+    if let cur = a.capInput { field.stringValue = cur }
+    alert.accessoryView = field
+    alert.addButton(withTitle: "Save Cap")
+    alert.addButton(withTitle: "Cancel")
+    alert.window.initialFirstResponder = field
+    guard alert.runModal() == .alertFirstButtonReturn else { return }
+    let raw = field.stringValue.trimmingCharacters(in: .whitespaces)
+    run(["cap", a.key, raw.isEmpty ? "-" : raw])
+  }
+
+  func resetCap(_ a: Account) {
+    let alert = dialog("Reset spend meter for \(a.name)?")
+    alert.informativeText = "Zeroes the estimated spend counter and starts counting Claude Code sessions from now."
+    alert.addButton(withTitle: "Reset Meter")
+    alert.addButton(withTitle: "Cancel")
+    guard alert.runModal() == .alertFirstButtonReturn else { return }
+    run(["cap", a.key, "reset"])
+  }
+
+  func clearCap(_ a: Account) {
+    let alert = dialog("Clear spend cap for \(a.name)?")
+    alert.informativeText = "Removes the dollar cap while keeping the spend estimate. Console accounts stay last in line."
+    alert.addButton(withTitle: "Clear Cap")
+    alert.addButton(withTitle: "Cancel")
+    guard alert.runModal() == .alertFirstButtonReturn else { return }
+    run(["cap", a.key, "-"])
   }
 
   func remove(_ a: Account) {
@@ -2410,9 +2881,10 @@ bar_start() {
 auto_bar() {
   (( barfd )) || return 0
   local i line lbl pct sev rst note grp scope applies left t nt rate soon model=$(model_name) cfg
+  local is_stale rstat rwin cap_str cap_in spent_str cap_from lim used_micro
   local -a rows models
   (( $# )) || for (( i = 1; i <= $#rk; i++ )); do
-    left="" t="" note="" nt="" rate="" soon=""
+    left="" t="" note="" nt="" rate="" soon="" is_stale=0 rstat="" rwin="" cap_str="" cap_in="" spent_str="" cap_from=""
     if (( us[i] != 2 )); then
       left=$(( tp[i] < 100 ? 100 - tp[i] : 0 ))
       tone $tp[i]; t=$REPLY
@@ -2427,7 +2899,10 @@ auto_bar() {
       (( rs > 0 )) && printf -v rate '+%.1f%%/min' $rs
       (( eta > 0 )) && soon=$(dur $eta)
     fi
-    [[ -n $ferr[i] ]] && note="stale $(dur $(( EPOCHSECONDS - ${saved_at[$rk[i]]:-$EPOCHSECONDS} )))" nt=y
+    if [[ -n $ferr[i] ]]; then
+      is_stale=1
+      note="stale $(dur $(( EPOCHSECONDS - ${saved_at[$rk[i]]:-$EPOCHSECONDS} )))" nt=y
+    fi
     if (( us[i] == 3 )); then
       left=0 t=r nt=r note="full"
       (( uf[i] )) && note="frees $(when $uf[i])"
@@ -2438,7 +2913,28 @@ auto_bar() {
     if [[ $uw[i] == API* ]] && (( us[i] < 2 )); then
       left="" t="" note=$uw[i] nt=""
     fi
-    rows+=( "A"$'\x1f'"${rn[i]:-$re[i]}"$'\x1f'"$rk[i]"$'\x1f'"$left"$'\x1f'"$t"$'\x1f'"$note"$'\x1f'"$nt"$'\x1f'"$rate"$'\x1f'"$soon" )
+    if (( ! rb[i] && us[i] != 2 )); then
+      if (( us[i] == 3 && uf[i] > EPOCHSECONDS )); then
+        rstat=$uf[i]
+        (( uf[i] > sr[i] )) && rwin=604800 || rwin=18000
+      elif (( sr[i] > EPOCHSECONDS )); then
+        rstat=$sr[i]
+        rwin=18000
+      fi
+    fi
+    if (( rb[i] )); then
+      lim=$(meta "$rk[i]" creditLimitMicro)
+      used_micro=$(meta "$rk[i]" creditUsedMicro)
+      cap_from=$(meta "$rk[i]" creditFrom)
+      if [[ -n $lim ]]; then
+        cap_str=$(micro_dollars "$lim")
+        cap_in=${${cap_str#\$}%.00}
+        spent_str=$(micro_dollars "${used_micro:-0}")
+      elif [[ -n $used_micro && $used_micro != 0 ]]; then
+        spent_str=$(micro_dollars "$used_micro")
+      fi
+    fi
+    rows+=( "A"$'\x1f'"${rn[i]:-$re[i]}"$'\x1f'"$rk[i]"$'\x1f'"$left"$'\x1f'"$t"$'\x1f'"$note"$'\x1f'"$nt"$'\x1f'"$rate"$'\x1f'"$soon"$'\x1f'"$re[i]"$'\x1f'"$rp[i]"$'\x1f'"$rb[i]"$'\x1f'"$is_stale"$'\x1f'"$rstat"$'\x1f'"$rwin"$'\x1f'"$cap_str"$'\x1f'"$cap_in"$'\x1f'"$spent_str"$'\x1f'"$cap_from" )
     for line in ${(f)ur[i]}; do
       IFS=$'\x1f' read -r lbl pct sev rst note grp scope <<< "$line"
       [[ -n $scope ]] && models+=( "$scope" )
@@ -2450,7 +2946,7 @@ auto_bar() {
       fi
       [[ -z $note ]] && (( rst > EPOCHSECONDS )) && note=$(when $rst)
       [[ -z $note && $grp == session ]] && note=idle
-      rows+=( "L"$'\x1f'"$lbl"$'\x1f'"$left"$'\x1f'"$t"$'\x1f'"$note"$'\x1f'"$( [[ $lbl == $tl[i] ]] && print 1)" )
+      rows+=( "L"$'\x1f'"$lbl"$'\x1f'"$left"$'\x1f'"$t"$'\x1f'"$note"$'\x1f'"$( [[ $lbl == $tl[i] ]] && print 1)"$'\x1f'"$grp" )
     done
   done
   cfg=$(jq -nc --argjson auto ${AUTO_ON:-1} --argjson at $AUTO_AT --arg model "$(setting model)" \
@@ -2462,12 +2958,17 @@ auto_bar() {
   print -ru $barfd -- "$(print -rl -- $rows | jq -Rsc --arg cur "$lastcur" --arg note "${1-}" --argjson cfg "$cfg" \
     --arg lid "$lowid" --arg ltext "$lowtext" --arg lto "$lowto" --arg ltoname "$( [[ -n $lowto ]] && name_of "$lowto")" '
     def num: tonumber? // null;
+    def opt: if (. // "") == "" then null else . end;
     reduce (split("\n")[] | select(length > 0) | split("\u001f")) as $r ([];
       if $r[0] == "A" then
-        . + [{key: $r[2], name: $r[1], active: ($r[2] == $cur), left: ($r[3] | num), tone: $r[4],
-              note: $r[5], noteTone: $r[6], rate: $r[7], eta: $r[8], limits: []}]
+        . + [{key: $r[2], name: $r[1], email: ($r[9] // ""), plan: ($r[10] // ""), api: ($r[11] == "1"),
+              active: ($r[2] == $cur), left: ($r[3] | num), tone: $r[4],
+              note: $r[5], noteTone: $r[6], stale: ($r[12] == "1"), rate: $r[7], eta: $r[8],
+              resetAt: ($r[13] | num), resetWindow: ($r[14] | num),
+              cap: ($r[15] | opt), capInput: ($r[16] | opt), spent: ($r[17] | opt), capFrom: ($r[18] | num),
+              limits: []}]
       else
-        .[length - 1].limits += [{label: $r[1], left: ($r[2] | num), tone: $r[3], note: $r[4], main: ($r[5] == "1")}]
+        .[length - 1].limits += [{label: $r[1], group: ($r[6] // ""), left: ($r[2] | num), tone: $r[3], note: $r[4], main: ($r[5] == "1")}]
       end)
     | {note: $note, accounts: ., settings: $cfg,
        alert: (if $lid == "" then null else {id: $lid, text: $ltext, to: $lto, toName: $ltoname} end)}')"
@@ -2789,26 +3290,39 @@ cmd_demo() {
   say "showing made-up figures in the menu bar. Ctrl-C ends it"
   # this shell holds the widget's stdin open, and it ends when the widget does
   coproc "$STORE/bar/oof" $$ /usr/bin/true
-  jq -nc --arg low "${1-}" --arg log "$AUTO_LOG" '
+  jq -nc --arg low "${1-}" --arg log "$AUTO_LOG" --argjson now "$EPOCHSECONDS" '
         ($low == "low") as $low
         | {note: "", settings: {auto: false, at: 99, model: "", notify: true, login: true, awake: true,
                                 log: $log, claudeModel: "opus", models: ["Fable"]},
            alert: (if $low then {id: "demo", text: "you has used 99%. work has the most room.",
                                  to: "work#demo", toName: "work"} else null end),
            accounts: [
-             {key: "you#demo", name: "you@example.com", active: true, tone: (if $low then "r" else "g" end),
-              left: (if $low then 1 else 64 end), note: "", noteTone: "", rate: "+0.6%/min", eta: (if $low then "2m" else "45m" end),
-              limits: [{label: "Session", left: (if $low then 1 else 64 end), tone: (if $low then "r" else "g" end), note: "in 2h 50m", main: $low},
-                       {label: "Weekly", left: 28, tone: "y", note: "Tue 03:30", main: ($low | not)},
-                       {label: "Weekly Fable", left: 100, tone: "", note: "Tue 03:30", main: false}]},
-             {key: "work#demo", name: "work", active: false, left: 100, tone: "g", note: "", noteTone: "", rate: "", eta: "",
-              limits: [{label: "Session", left: 100, tone: "g", note: "idle", main: true}]},
-             {key: "team#demo", name: "team@example.com", active: false, left: 52, tone: "g", note: "stale 4m", noteTone: "y", rate: "", eta: "",
-              limits: [{label: "Session", left: 52, tone: "g", note: "in 1h 5m", main: true}]},
-             {key: "side#demo", name: "side@example.com", active: false, left: 0, tone: "r", note: "frees in 1h 40m", noteTone: "r", rate: "", eta: "",
-              limits: [{label: "Session", left: 0, tone: "r", note: "in 1h 40m", main: true}]},
-             {key: "old#demo", name: "old@example.com", active: false, left: null, tone: "", note: "rate limited", noteTone: "y", rate: "", eta: "",
-              limits: []}]}' >&p
+             {key: "you#75f7fdbe", name: "you@example.com #75f7fdbe", email: "you@example.com #75f7fdbe",
+              plan: "Max 5x", api: false, active: true, tone: (if $low then "r" else "g" end),
+              left: (if $low then 1 else 51 end), note: "", noteTone: "", stale: false,
+              rate: "+0.6%/min", eta: (if $low then "2m" else "45m" end),
+              resetAt: ($now + 10200), resetWindow: 18000,
+              cap: null, capInput: null, spent: null, capFrom: null,
+              limits: [{label: "Session", group: "session", left: (if $low then 1 else 51 end), tone: (if $low then "r" else "g" end), note: "in 2h 50m", main: $low},
+                       {label: "Weekly", group: "weekly", left: 28, tone: "y", note: "Tue 03:30", main: ($low | not)},
+                       {label: "Weekly Fable", group: "weekly", left: 100, tone: "", note: "Tue 03:30", main: false}]},
+             {key: "work#demo", name: "work", email: "work@example.com", plan: "Max", api: false,
+              active: false, left: 100, tone: "g", note: "", noteTone: "", stale: false, rate: "", eta: "",
+              resetAt: null, resetWindow: null, cap: null, capInput: null, spent: null, capFrom: null,
+              limits: [{label: "Session", group: "session", left: 100, tone: "g", note: "idle", main: true}]},
+             {key: "team#demo", name: "team@example.com", email: "team@example.com", plan: "Pro", api: false,
+              active: false, left: 52, tone: "g", note: "stale 4m", noteTone: "y", stale: true, rate: "", eta: "",
+              resetAt: ($now + 3900), resetWindow: 18000, cap: null, capInput: null, spent: null, capFrom: null,
+              limits: [{label: "Session", group: "session", left: 52, tone: "g", note: "in 1h 5m", main: true}]},
+             {key: "side#demo", name: "side@example.com", email: "side@example.com", plan: "Pro", api: false,
+              active: false, left: 0, tone: "r", note: "frees in 1h 40m", noteTone: "r", stale: false, rate: "", eta: "",
+              resetAt: ($now + 6000), resetWindow: 18000, cap: null, capInput: null, spent: null, capFrom: null,
+              limits: [{label: "Session", group: "session", left: 0, tone: "r", note: "in 1h 40m", main: true}]},
+             {key: "you#8dd9587a", name: "you@example.com #8dd9587a", email: "you@example.com #8dd9587a",
+              plan: "API", api: true, active: false, left: 88, tone: "g", note: "", noteTone: "", stale: false,
+              rate: "", eta: "", resetAt: null, resetWindow: null,
+              cap: "$250.00", capInput: "250", spent: "$30.00", capFrom: ($now - 432000),
+              limits: [{label: "Credits", group: "credits", left: 88, tone: "g", note: "est. $30.00 of $250.00", main: true}]}]}' >&p
   wait $!
 }
 
@@ -3058,7 +3572,7 @@ cmd_cap() {
         || die "couldn't reset the meter"
       rm -f "$USAGE_DIR/$k.credits.json" "$USAGE_DIR/$k.credits.json.tmp"
       ok "reset the meter for $(label "$k"). It counts spend from now."
-      [[ -n $(meta "$k" creditLimitMicro) ]] && write_credit_usage "$USAGE_DIR/$k.json" "$k" ;;
+      write_credit_usage "$USAGE_DIR/$k.json" "$k" ;;
     *)
       micro=$(dollars_to_micro "$2") || die "a cap looks like ${B}25${R} or ${B}\$25.50${R}. Use ${B}-${R} to clear it and ${B}reset${R} to start the meter over."
       from=$(meta "$k" creditFrom)
