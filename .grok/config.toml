@@ -1,0 +1,42 @@
+[cli]
+installer = "internal"
+auto_update = true
+
+[marketplace]
+official_marketplace_auto_installed = true
+default_skills_installs_purged = true
+
+[[marketplace.sources]]
+name = "xAI Official"
+git = "https://github.com/xai-org/plugin-marketplace.git"
+
+[ui]
+max_thoughts_width = 120
+fork_secondary_model = "grok-build"
+yolo = false
+compact_mode = false
+permission_mode = "always-approve"
+
+[models]
+default = "grok-4.7"
+default_reasoning_effort = "high"
+
+[privacy]
+privacy_banner_acked = "2026-08-17T10:50:43Z"
+
+[skills]
+ignore = [
+  "~/.grok/bundled/skills/game-animation-frames",
+  "~/.grok/bundled/skills/game-asset-core",
+  "~/.grok/bundled/skills/game-assets",
+  "~/.grok/bundled/skills/game-character-consistency",
+  "~/.grok/bundled/skills/game-tilesets",
+  "~/.grok/bundled/skills/game-ui-icons",
+  "~/.grok/bundled/skills/threejs-frame-conventions",
+  "~/.grok/bundled/skills/imagine",
+  "~/.grok/bundled/skills/resume-claude",
+  "~/.grok/bundled/skills/resume-codex",
+  "~/.grok/bundled/skills/resume-cursor",
+  "~/.claude/skills/synced",
+  "~/.claude/plugins/synced",
+]

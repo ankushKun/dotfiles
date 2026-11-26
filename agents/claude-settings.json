@@ -1,0 +1,67 @@
+{
+  "env": {
+    "CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL": "true"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "includeCoAuthoredBy": false,
+  "model": "opus",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "medium"
+    },
+    "claude-fable-5-1": {
+      "effortLevel": "xhigh"
+    },
+    "claude-fable-5-2": {
+      "effortLevel": "xhigh"
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.local/bin/oof\" save -q || true",
+            "timeout": 15,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.local/bin/oof\" save -q || true",
+            "timeout": 15,
+            "async": true
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "github@synced": false
+  },
+  "feedbackDrafts": "off",
+  "askUserQuestionTimeout": "never",
+  "skipWorkflowUsageWarning": true,
+  "tui": "fullscreen",
+  "theme": "dark",
+  "editorMode": "normal",
+  "verbose": false,
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  },
+  "voiceEnabled": true,
+  "preferredNotifChannel": "auto",
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
+  "switchModelsOnFlag": false
+}

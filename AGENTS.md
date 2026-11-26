@@ -29,6 +29,9 @@ Personal dotfiles repo for macOS (Apple Silicon). Not an application codebase �
 │   │       └── plugins/        # ui, navigation, git, treesitter, lsp, etc.
 │   ├── tmux/
 │   └── yazi/
+├── .claude/CLAUDE.md               # global Claude Code rules, stowed per-file
+├── .grok/config.toml               # Grok config incl. skill ignore list, stowed per-file
+├── agents/claude-settings.json     # tracked Claude settings keys, merged (not stowed)
 ├── .pi/                            # pi coding-agent config (allowlisted only)
 │   ├── ascii.txt, eyes.txt, miku.txt
 │   └── agent/
@@ -94,12 +97,31 @@ Stow allowlists config only. Runtime data and secrets stay as real files under `
 4. Re-auth providers so `auth.json` is recreated (never restore secrets from backup into git)
 5. Launch pi so npm packages reinstall from the `packages` list
 
+## Coding agents (Claude Code, Grok, OpenCode)
+
+Only hand-written config is tracked. Auth, sessions, caches, memory and anything an agent generates stay local.
+
+| Path | How |
+| `~/.claude/CLAUDE.md` | Stowed symlink |
+| `~/.claude/settings.json` | Real file. `scripts/agents.sh` merges `agents/claude-settings.json` into it, because Claude writes `autoMode` and `permissions` there with machine paths that must not reach this public repo |
+| `~/.grok/config.toml` | Stowed symlink |
+| `~/.config/opencode/opencode.json` | Stowed symlink |
+
+Not tracked: `~/.claude.json` (OAuth, project state, user MCPs), synced claude.ai skills and plugins, `~/.grok/bundled`, cmux-generated agent hooks, and `~/.gemini` (Antigravity state with machine paths and a GCP project id).
+
+- `make stow` pre-creates `~/.claude`, `~/.grok` and `~/.config/opencode` so stow links single files and never folds a whole runtime dir into the repo.
+- `make agents` applies tracked Claude settings. `make agents-pull` copies live values of tracked keys back into the repo after changing them in `/config`. To track a new key, add it to `agents/claude-settings.json`.
+- Some agents replace a symlink with a plain file when they save (OpenCode has done this). `make doctor` flags it. Fix with: diff the plain file against the repo copy, keep the right content in the repo, delete the plain file, `make stow`.
+- Keep it lean. Add an MCP server or skill globally only when it is used across most projects. Otherwise scope it to the project.
+
 ## Make targets
 
 | Target          | Action                              |
 | --------------- | ----------------------------------- |
 | `make install`  | Full setup via `scripts/install.sh` |
 | `make stow`     | Deploy symlinks only                |
+| `make agents`   | Apply tracked Claude settings       |
+| `make agents-pull` | Pull live Claude settings into repo |
 | `make doctor`   | Run health checks                   |
 | `make ssh`      | Generate/show GitHub SSH key        |
 | `make defaults` | Apply macOS preferences             |

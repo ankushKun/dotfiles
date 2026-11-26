@@ -16,3 +16,5 @@ rectangle\.json
 ^/AGENTS\.md$
 Makefile
 .*\.cmux-write\.lock
+# Merged into ~/.claude/settings.json by scripts/agents.sh, not symlinked
+^/agents$

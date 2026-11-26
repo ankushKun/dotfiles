@@ -38,6 +38,15 @@ check_symlink() {
 
 check_symlink "$HOME/.zshrc"
 check_symlink "$HOME/.local/bin/oof"
+# Agent configs. Some agents replace symlinks with plain files when they save.
+check_symlink "$HOME/.claude/CLAUDE.md"
+check_symlink "$HOME/.grok/config.toml"
+check_symlink "$HOME/.config/opencode/opencode.json"
+if bash "$DOTFILES/scripts/agents.sh" check; then
+  ok "Claude settings match agents/claude-settings.json"
+else
+  warn "Claude settings drifted (run: make agents, or make agents-pull to keep live)"
+fi
 if [ -L "$HOME/.config/nvim" ] && readlink "$HOME/.config/nvim" | grep -q ".dotfiles"; then
   ok "Symlink OK: $HOME/.config/nvim"
 elif [ -L "$HOME/.config/nvim/init.lua" ] && readlink "$HOME/.config/nvim/init.lua" | grep -q ".dotfiles"; then

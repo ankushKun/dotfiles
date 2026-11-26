@@ -19,6 +19,7 @@ cd ~/.dotfiles && git pull && make install
 ```bash
 make install   # full setup
 make stow      # symlinks only
+make agents    # apply Claude Code settings
 make doctor    # health check
 make ssh       # GitHub SSH key
 make defaults  # macOS preferences
@@ -33,6 +34,10 @@ Install prints your public key for [GitHub SSH settings](https://github.com/sett
 ## Pi
 
 Allowlisted `~/.pi` config lives under [`.pi/`](.pi/) and is stowed into `$HOME`. Live `settings.json`, `auth.json`, sessions, npm installs, and memory DBs stay local-only. See [AGENTS.md](AGENTS.md#pi-pi) for the allowlist/denylist and fresh-machine steps.
+
+## Coding agents
+
+Global Claude Code, Grok and OpenCode config is tracked without auth, sessions or machine state. `make agents` applies Claude settings. See [AGENTS.md](AGENTS.md#coding-agents-claude-code-grok-opencode).
 
 ## More detail
 

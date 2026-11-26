@@ -88,7 +88,10 @@ if ! command -v stow &>/dev/null; then
 fi
 
 if command -v stow &>/dev/null; then
+  # Pre-create agent dirs so stow links single files, never the whole dir
+  mkdir -p "$HOME/.claude" "$HOME/.grok" "$HOME/.config/opencode"
   try "Stow dotfiles" stow -d "$DOTFILES" -t "$HOME" --restow .
+  try "Apply Claude Code settings" bash "$DOTFILES/scripts/agents.sh" apply
 else
   fail "stow not available — skip stow packages"
 fi
